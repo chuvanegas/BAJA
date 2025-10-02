@@ -280,28 +280,6 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                     <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros. Ahora puede generar el reporte.</p>
                 </div>
             </div>
-            <ScrollArea className="h-72 w-full rounded-md border">
-              <Table>
-                <TableHeader className="sticky top-0 bg-muted">
-                  <TableRow>
-                    <TableHead>CUPS</TableHead>
-                    <TableHead>CUPS Vigente</TableHead>
-                    <TableHead>Tipo Ser</TableHead>
-                    <TableHead>Nombre CUPS</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cupsData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-mono text-xs">{row['CUPS']}</TableCell>
-                      <TableCell className="font-mono text-xs">{row['CUPS VIGENTE']}</TableCell>
-                      <TableCell className="text-xs">{row['Tipo Ser']}</TableCell>
-                      <TableCell className="text-xs">{row['NOMBRE CUPS']}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
              <div className="flex justify-center py-4">
                  <Button onClick={handleGenerateCoincidenceReport} size="lg">
                     <Search className="mr-2"/>
