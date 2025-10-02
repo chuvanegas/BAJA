@@ -4,24 +4,24 @@ import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSearch, Upload, File, X, Cog, CheckCircle } from "lucide-react";
+import { FileSearch, Upload, File, X, Cog, CheckCircle, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "../ui/scroll-area";
+import { parseRIPS } from "@/lib/rips-parser";
+import type { CupsDataRow, Coincidence, CoincidenceReport } from "@/lib/types";
 
-// Define a type for the CUPS data row
-type CupsDataRow = {
-  'Tipo Ser': string;
-  'CUPS': string;
-  'CUPS VIGENTE': string;
-  'NOMBRE CUPS': string;
-};
+interface DetailedReportsProps {
+  cupsData: CupsDataRow[];
+  setCupsData: (data: CupsDataRow[]) => void;
+  ripsFileContents: Record<string, string>;
+}
 
-export default function DetailedReports() {
+export default function DetailedReports({ cupsData, setCupsData, ripsFileContents }: DetailedReportsProps) {
   const [cupsFile, setCupsFile] = useState<File | null>(null);
-  const [cupsData, setCupsData] = useState<CupsDataRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [coincidenceReport, setCoincidenceReport] = useState<CoincidenceReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -29,7 +29,8 @@ export default function DetailedReports() {
     const file = event.target.files?.[0];
     if (file) {
       setCupsFile(file);
-      setCupsData([]); // Reset data when a new file is loaded
+      setCupsData([]);
+      setCoincidenceReport(null);
       toast({
         title: "Archivo cargado",
         description: `Se ha seleccionado el archivo: ${file.name}`,
@@ -44,6 +45,7 @@ export default function DetailedReports() {
   const handleRemoveFile = () => {
     setCupsFile(null);
     setCupsData([]);
+    setCoincidenceReport(null);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -74,8 +76,6 @@ export default function DetailedReports() {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(text, "application/xml");
             
-            // This is a simple XML parser assuming a structure like <rows><row><column>value</column>...</row></rows>
-            // This needs to be adapted to the actual XML structure.
             const rows = Array.from(xmlDoc.getElementsByTagName('row'));
             if (rows.length > 0) {
               const headers = Array.from(rows[0].children).map(child => child.tagName);
@@ -133,6 +133,72 @@ export default function DetailedReports() {
     }
   };
 
+  const handleGenerateCoincidenceReport = () => {
+    if (cupsData.length === 0) {
+        toast({ title: "Sin datos de mapeo", description: "Cargue y procese un archivo de mapeo CUPS primero.", variant: "destructive"});
+        return;
+    }
+    if (Object.keys(ripsFileContents).length === 0) {
+        toast({ title: "Sin archivos RIPS", description: "Cargue y valide al menos un archivo RIPS en la otra pestaña.", variant: "destructive"});
+        return;
+    }
+
+    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU'];
+    let globalCoincidences: Coincidence[] = [];
+    let prestadorInfo = {
+        nombre: "N/A",
+        nit: "N/A",
+        contrato: "N/A",
+    };
+
+    const allRipsBlocks: Record<string, string[]> = {};
+
+    for (const content of Object.values(ripsFileContents)) {
+        const blocks = parseRIPS(content);
+        for (const segment in blocks) {
+            if (!allRipsBlocks[segment]) {
+                allRipsBlocks[segment] = [];
+            }
+            allRipsBlocks[segment].push(...blocks[segment]);
+        }
+    }
+    
+    if (allRipsBlocks['AF']?.[0]) {
+        const afCols = allRipsBlocks['AF'][0].split(',');
+        prestadorInfo.nombre = afCols[1] || "N/A";
+        prestadorInfo.nit = afCols[3] || "N/A";
+        prestadorInfo.contrato = afCols[10] || "N/A";
+    }
+
+    cupsData.forEach(cupsRow => {
+        const codeToSearch = cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'];
+        if (!codeToSearch) return;
+
+        const coincidence: Coincidence = {
+            cups: cupsRow['CUPS'],
+            cupsVigente: cupsRow['CUPS VIGENTE'],
+            nombre: cupsRow['NOMBRE CUPS'],
+            tipoSer: cupsRow['Tipo Ser'],
+            coincidences: {},
+            total: 0
+        };
+
+        segmentsToSearch.forEach(seg => {
+            const segmentLines = allRipsBlocks[seg] || [];
+            const count = segmentLines.reduce((acc, line) => {
+                return acc + (line.includes(`,${codeToSearch},`) ? 1 : 0);
+            }, 0);
+            coincidence.coincidences[seg] = count;
+            coincidence.total += count;
+        });
+
+        globalCoincidences.push(coincidence);
+    });
+
+    setCoincidenceReport({ prestador: prestadorInfo, data: globalCoincidences });
+     toast({ title: "Reporte de coincidencias generado." });
+  }
+
   return (
     <Card className="shadow-lg mt-8">
       <CardHeader>
@@ -140,13 +206,13 @@ export default function DetailedReports() {
           <FileSearch /> Reportes Detallados
         </CardTitle>
         <CardDescription>
-          Cargue y procese un archivo de mapeo de CUPS para enriquecer sus reportes.
+          Cargue un archivo de mapeo CUPS y crúcelo con los datos RIPS para generar reportes enriquecidos.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
           <p className="text-sm text-muted-foreground flex-1">
-            Para enriquecer los reportes, puede cargar un archivo de mapeo de códigos CUPS.
+            Paso 1: Cargue un archivo de mapeo de códigos CUPS.
           </p>
           <input
             type="file"
@@ -183,8 +249,8 @@ export default function DetailedReports() {
             <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
                 <CheckCircle className="w-6 h-6 text-green-600" />
                 <div>
-                    <p className="font-semibold text-green-700 dark:text-green-400">¡Archivo procesado con éxito!</p>
-                    <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros del mapeo de CUPS.</p>
+                    <p className="font-semibold text-green-700 dark:text-green-400">Paso 1 completado. ¡Mapeo procesado!</p>
+                    <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros. Ahora puede generar el reporte.</p>
                 </div>
             </div>
             <ScrollArea className="h-72 w-full rounded-md border">
@@ -209,7 +275,60 @@ export default function DetailedReports() {
                 </TableBody>
               </Table>
             </ScrollArea>
+             <div className="flex justify-center py-4">
+                 <Button onClick={handleGenerateCoincidenceReport} size="lg">
+                    <Search className="mr-2"/>
+                    Generar Reporte de Coincidencias
+                </Button>
+             </div>
           </div>
+        )}
+        
+        {coincidenceReport && (
+            <div className="space-y-4 pt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Reporte de Coincidencias CUPS</CardTitle>
+                        <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p><strong>Prestador:</strong> {coincidenceReport.prestador.nombre}</p>
+                        <p><strong>Nit:</strong> {coincidenceReport.prestador.nit}</p>
+                        <p><strong>Contrato:</strong> {coincidenceReport.prestador.contrato}</p>
+                         <ScrollArea className="h-96 w-full rounded-md border">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-muted">
+                                    <TableRow>
+                                        <TableHead>CUPS</TableHead>
+                                        <TableHead>Nombre CUPS</TableHead>
+                                        <TableHead>Tipo Ser</TableHead>
+                                        <TableHead className="text-center">AP</TableHead>
+                                        <TableHead className="text-center">AC</TableHead>
+                                        <TableHead className="text-center">AT</TableHead>
+                                        <TableHead className="text-center">AN</TableHead>
+                                        <TableHead className="text-center">AH</TableHead>
+                                        <TableHead className="text-center">AU</TableHead>
+                                        <TableHead className="text-center font-bold">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {coincidenceReport.data.map((row, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="font-mono text-xs">{row.cups}</TableCell>
+                                            <TableCell className="text-xs">{row.nombre}</TableCell>
+                                            <TableCell className="text-xs">{row.tipoSer}</TableCell>
+                                            {Object.values(row.coincidences).map((count, i) => (
+                                                <TableCell key={i} className="text-center text-xs">{count}</TableCell>
+                                            ))}
+                                            <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                         </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
         )}
 
         {cupsData.length === 0 && !cupsFile && (

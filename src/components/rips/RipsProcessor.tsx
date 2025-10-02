@@ -26,10 +26,23 @@ import { exportToExcel } from '@/lib/excel-export';
 import { ErrorAnalysisDialog } from './ErrorAnalysisDialog';
 import { Separator } from '@/components/ui/separator';
 
-export default function RipsProcessor() {
-  const [fileContents, setFileContents] = useState<Record<string, string>>({});
-  const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
-  const [globalAf, setGlobalAf] = useState<GlobalAfSummary>({});
+interface RipsProcessorProps {
+    fileContents: Record<string, string>;
+    setFileContents: (contents: Record<string, string>) => void;
+    validationResults: ValidationResult[];
+    setValidationResults: (results: ValidationResult[]) => void;
+    globalAf: GlobalAfSummary;
+    setGlobalAf: (summary: GlobalAfSummary) => void;
+}
+
+export default function RipsProcessor({
+    fileContents,
+    setFileContents,
+    validationResults,
+    setValidationResults,
+    globalAf,
+    setGlobalAf,
+}: RipsProcessorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisTarget, setAnalysisTarget] = useState<AnalysisTarget | null>(null);

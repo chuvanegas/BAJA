@@ -36,3 +36,28 @@ export type AnalysisTarget = {
   found: number;
   fileContent: string;
 }
+
+export type CupsDataRow = {
+  'Tipo Ser': string;
+  'CUPS': string;
+  'CUPS VIGENTE': string;
+  'NOMBRE CUPS': string;
+};
+
+export type Coincidence = {
+    cups: string;
+    cupsVigente: string;
+    nombre: string;
+    tipoSer: string;
+    coincidences: Record<string, number>;
+    total: number;
+}
+
+export type CoincidenceReport = {
+    prestador: {
+        nombre: string;
+        nit: string;
+        contrato: string;
+    };
+    data: Coincidence[];
+}
