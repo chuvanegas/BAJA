@@ -8,7 +8,7 @@ import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download } from 
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "../ui/scroll-area";
+import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import type { CupsDataRow, Coincidence, CoincidenceReport } from "@/lib/types";
@@ -324,37 +324,40 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                             <p><strong>Nit:</strong> {coincidenceReport.prestador.nit}</p>
                             <p><strong>Contrato:</strong> {coincidenceReport.prestador.contrato}</p>
                         </div>
-                         <ScrollArea className="h-96 w-full rounded-md border">
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-muted">
-                                    <TableRow>
-                                        <TableHead className="min-w-[100px]">CUPS</TableHead>
-                                        <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
-                                        <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
-                                        <TableHead className="text-center">AP</TableHead>
-                                        <TableHead className="text-center">AC</TableHead>
-                                        <TableHead className="text-center">AT</TableHead>
-                                        <TableHead className="text-center">AN</TableHead>
-                                        <TableHead className="text-center">AH</TableHead>
-                                        <TableHead className="text-center">AU</TableHead>
-                                        <TableHead className="text-center">US</TableHead>
-                                        <TableHead className="text-center font-bold">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {coincidenceReport.data.map((row, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell className="font-mono text-xs">{row.cups}</TableCell>
-                                            <TableCell className="text-xs">{row.nombre}</TableCell>
-                                            <TableCell className="text-xs">{row.tipoSer}</TableCell>
-                                            {Object.values(row.coincidences).map((count, i) => (
-                                                <TableCell key={i} className="text-center text-xs">{count}</TableCell>
-                                            ))}
-                                            <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                         <ScrollArea className="whitespace-nowrap rounded-md border">
+                            <div className="max-h-96">
+                                <Table>
+                                    <TableHeader className="sticky top-0 bg-muted">
+                                        <TableRow>
+                                            <TableHead className="min-w-[100px]">CUPS</TableHead>
+                                            <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
+                                            <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
+                                            <TableHead className="text-center">AP</TableHead>
+                                            <TableHead className="text-center">AC</TableHead>
+                                            <TableHead className="text-center">AT</TableHead>
+                                            <TableHead className="text-center">AN</TableHead>
+                                            <TableHead className="text-center">AH</TableHead>
+                                            <TableHead className="text-center">AU</TableHead>
+                                            <TableHead className="text-center">US</TableHead>
+                                            <TableHead className="text-center font-bold">Total</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {coincidenceReport.data.map((row, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell className="font-mono text-xs">{row.cups}</TableCell>
+                                                <TableCell className="text-xs">{row.nombre}</TableCell>
+                                                <TableCell className="text-xs">{row.tipoSer}</TableCell>
+                                                {Object.values(row.coincidences).map((count, i) => (
+                                                    <TableCell key={i} className="text-center text-xs">{count}</TableCell>
+                                                ))}
+                                                <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <ScrollBar orientation="horizontal" />
                          </ScrollArea>
                          <div className="flex justify-end pt-4">
                             <Button onClick={() => exportCoincidenceToExcel(coincidenceReport)}>
