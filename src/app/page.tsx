@@ -1,6 +1,8 @@
 import RipsProcessor from '@/components/rips/RipsProcessor';
 import DetailedReports from '@/components/rips/DetailedReports';
-import { BarChartBig } from 'lucide-react';
+import { BarChartBig, LayoutGrid, FileSearch } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 export default function Home() {
   return (
@@ -14,8 +16,24 @@ export default function Home() {
           Cargue, valide y analice sus archivos RIPS con la potencia de la IA.
         </p>
       </header>
-      <RipsProcessor />
-      <DetailedReports />
+      
+      <Tabs defaultValue="validator" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="validator">
+            <LayoutGrid className="mr-2" /> Validador RIPS
+          </TabsTrigger>
+          <TabsTrigger value="reports">
+            <FileSearch className="mr-2" /> Reportes Detallados
+            </TabsTrigger>
+        </TabsList>
+        <TabsContent value="validator" className="mt-6">
+          <RipsProcessor />
+        </TabsContent>
+        <TabsContent value="reports" className="mt-6">
+          <DetailedReports />
+        </TabsContent>
+      </Tabs>
+
     </main>
   );
 }
