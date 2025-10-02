@@ -175,6 +175,42 @@ export default function RipsProcessor() {
         </div>
       }
 
+      {Object.keys(globalAf).length > 0 && !isPending && (
+        <Card>
+          <CardHeader>
+            <CardTitle>📌 Resumen de Prestadores (AF)</CardTitle>
+            <CardDescription>Resumen consolidado de todos los archivos AF cargados.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {Object.values(globalAf).map(af => (
+                <AccordionItem value={af.NI} key={af.NI}>
+                  <AccordionTrigger className="font-semibold text-base">{af.nombrePrestador}</AccordionTrigger>
+                  <AccordionContent className="space-y-4 pt-4">
+                    <p><strong>NI:</strong> {af.NI}</p>
+                    <p><strong>Número de contrato:</strong> {af.contrato}</p>
+                    <p><strong>Tipo de servicio:</strong> {af.tipoServicio}</p>
+                    <p><strong>Régimen:</strong> {af.regimen}</p>
+                    <p><strong>Periodos de radicación y valores:</strong></p>
+                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                      {af.detalles.map((d, i) => (
+                        <li key={i}>{d.periodo} → {formatCurrency(d.valor)} <span className="text-xs"> (Archivo: {d.archivo})</span></li>
+                      ))}
+                    </ul>
+                    <p className="font-bold text-lg"><strong>Valor LMA Total:</strong> {formatCurrency(af.valorTotal)}</p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => exportToExcel(globalAf)}>
+              <Download /> Exportar Resumen AF
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
       {validationResults.length > 0 && !isPending && (
         <Card>
           <CardHeader>
@@ -225,42 +261,6 @@ export default function RipsProcessor() {
               </Card>
             ))}
           </CardContent>
-        </Card>
-      )}
-
-      {Object.keys(globalAf).length > 0 && !isPending && (
-        <Card>
-          <CardHeader>
-            <CardTitle>📌 Resumen de Prestadores (AF)</CardTitle>
-            <CardDescription>Resumen consolidado de todos los archivos AF cargados.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {Object.values(globalAf).map(af => (
-                <AccordionItem value={af.NI} key={af.NI}>
-                  <AccordionTrigger className="font-semibold text-base">{af.nombrePrestador}</AccordionTrigger>
-                  <AccordionContent className="space-y-4 pt-4">
-                    <p><strong>NI:</strong> {af.NI}</p>
-                    <p><strong>Número de contrato:</strong> {af.contrato}</p>
-                    <p><strong>Tipo de servicio:</strong> {af.tipoServicio}</p>
-                    <p><strong>Régimen:</strong> {af.regimen}</p>
-                    <p><strong>Periodos de radicación y valores:</strong></p>
-                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                      {af.detalles.map((d, i) => (
-                        <li key={i}>{d.periodo} → {formatCurrency(d.valor)} <span className="text-xs"> (Archivo: {d.archivo})</span></li>
-                      ))}
-                    </ul>
-                    <p className="font-bold text-lg"><strong>Valor LMA Total:</strong> {formatCurrency(af.valorTotal)}</p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => exportToExcel(globalAf)}>
-              <Download /> Exportar Resumen AF
-            </Button>
-          </CardFooter>
         </Card>
       )}
 
