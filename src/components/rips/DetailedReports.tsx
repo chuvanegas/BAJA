@@ -19,12 +19,20 @@ interface DetailedReportsProps {
   setCupsData: (data: CupsDataRow[]) => void;
   ripsFileContents: Record<string, string>;
   globalAf: GlobalAfSummary;
+  coincidenceReport: CoincidenceReport | null;
+  setCoincidenceReport: (report: CoincidenceReport | null) => void;
 }
 
-export default function DetailedReports({ cupsData, setCupsData, ripsFileContents, globalAf }: DetailedReportsProps) {
+export default function DetailedReports({ 
+  cupsData, 
+  setCupsData, 
+  ripsFileContents, 
+  globalAf,
+  coincidenceReport,
+  setCoincidenceReport 
+}: DetailedReportsProps) {
   const [cupsFile, setCupsFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [coincidenceReport, setCoincidenceReport] = useState<CoincidenceReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -32,6 +40,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
     const file = event.target.files?.[0];
     if (file) {
       setCupsFile(file);
+      // Reset dependent state when a new file is chosen
       setCupsData([]);
       setCoincidenceReport(null);
       toast({
@@ -61,7 +70,6 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
     if (!cupsFile) return;
 
     setIsProcessing(true);
-    setCupsData([]);
     const reader = new FileReader();
 
     reader.onload = (e) => {

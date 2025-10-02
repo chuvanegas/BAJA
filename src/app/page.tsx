@@ -5,15 +5,16 @@ import RipsProcessor from '@/components/rips/RipsProcessor';
 import DetailedReports from '@/components/rips/DetailedReports';
 import { BarChartBig, LayoutGrid, FileSearch } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { GlobalAfSummary, ValidationResult, CupsDataRow } from '@/lib/types';
+import type { GlobalAfSummary, ValidationResult, CupsDataRow, CoincidenceReport } from '@/lib/types';
 
 
 export default function Home() {
-  // State lifted up to the parent component
+  // State lifted up to the parent component to persist across tabs
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [globalAf, setGlobalAf] = useState<GlobalAfSummary>({});
   const [cupsData, setCupsData] = useState<CupsDataRow[]>([]);
+  const [coincidenceReport, setCoincidenceReport] = useState<CoincidenceReport | null>(null);
 
   return (
     <main className="container mx-auto px-4 py-8">
@@ -52,6 +53,8 @@ export default function Home() {
             setCupsData={setCupsData}
             ripsFileContents={fileContents}
             globalAf={globalAf}
+            coincidenceReport={coincidenceReport}
+            setCoincidenceReport={setCoincidenceReport}
           />
         </TabsContent>
       </Tabs>
