@@ -85,17 +85,22 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         const coincidences = Object.values(row.coincidences);
         return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total];
     });
-
-    const wsData = [
-        ["Reporte de Coincidencias CUPS"],
-        [],
-        ["Prestador:", report.prestador.nombre],
-        ["Nit:", report.prestador.nit],
-        ["Contrato:", report.prestador.contrato],
-        [],
-        headers,
-        ...dataToExport
+    
+    let wsData: (string | number)[][] = [
+      ["Reporte de Coincidencias CUPS"],
+      [],
     ];
+
+    Object.values(report.prestadores).forEach(prestador => {
+      wsData.push(["Prestador:", prestador.nombrePrestador]);
+      wsData.push(["Nit:", prestador.NI]);
+      wsData.push(["Contrato:", prestador.contrato]);
+      wsData.push(["Valor Total:", prestador.valorTotal]);
+      wsData.push([]);
+    });
+
+    wsData.push(headers);
+    wsData.push(...dataToExport);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 

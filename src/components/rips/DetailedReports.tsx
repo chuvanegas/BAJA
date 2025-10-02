@@ -4,22 +4,24 @@ import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download } from "lucide-react";
+import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
-import type { CupsDataRow, Coincidence, CoincidenceReport } from "@/lib/types";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, AfProviderData } from "@/lib/types";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
   setCupsData: (data: CupsDataRow[]) => void;
   ripsFileContents: Record<string, string>;
+  globalAf: GlobalAfSummary;
 }
 
-export default function DetailedReports({ cupsData, setCupsData, ripsFileContents }: DetailedReportsProps) {
+export default function DetailedReports({ cupsData, setCupsData, ripsFileContents, globalAf }: DetailedReportsProps) {
   const [cupsFile, setCupsFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [coincidenceReport, setCoincidenceReport] = useState<CoincidenceReport | null>(null);
@@ -143,14 +145,13 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
         toast({ title: "Sin archivos RIPS", description: "Cargue y valide al menos un archivo RIPS en la otra pestaña.", variant: "destructive"});
         return;
     }
+    if (Object.keys(globalAf).length === 0) {
+        toast({ title: "Sin información de prestador (AF)", description: "Asegúrese de que los archivos RIPS incluyen un archivo AF válido.", variant: "destructive"});
+        return;
+    }
 
     const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
     let globalCoincidences: Coincidence[] = [];
-    let prestadorInfo = {
-        nombre: "N/A",
-        nit: "N/A",
-        contrato: "N/A",
-    };
 
     const allRipsBlocks: Record<string, string[]> = {};
 
@@ -164,15 +165,9 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
         }
     }
     
-    if (allRipsBlocks['AF']?.[0]) {
-        const afCols = allRipsBlocks['AF'][0].split(',');
-        prestadorInfo.nombre = afCols[1] || "N/A";
-        prestadorInfo.nit = afCols[3] || "N/A";
-        prestadorInfo.contrato = afCols[10] || "N/A";
-    }
-
     cupsData.forEach(cupsRow => {
         const codeToSearch = cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'];
+        const vigenteCodeToSearch = cupsRow['CUPS VIGENTE'];
         if (!codeToSearch) return;
 
         const coincidence: Coincidence = {
@@ -187,31 +182,22 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
         segmentsToSearch.forEach(seg => {
             const segmentLines = allRipsBlocks[seg] || [];
             let count = 0;
-            // The position of the CUPS code varies by segment.
-            // This is a simplified search. A more robust parser would be better.
-            if(seg === 'US') {
-                // In US, there's no CUPS code directly. This search is likely to fail.
-                // We'll leave it as an example, but it probably won't find anything.
-                count = segmentLines.reduce((acc, line) => {
-                     return acc + (line.includes(`,${codeToSearch},`) ? 1 : 0);
-                }, 0);
-            } else {
+            const codePosition = {
+                'AC': 6, 'AP': 7, 'AU': 6, 'AH': 8, 'AN': 6, 'AT': 6,
+            };
+            const pos = codePosition[seg as keyof typeof codePosition];
+
+            if (pos !== undefined) {
                  count = segmentLines.reduce((acc, line) => {
                     const cols = line.split(',');
-                    // Example positions for CUPS codes
-                    const codePosition = {
-                        'AC': 6,
-                        'AP': 7,
-                        'AU': 6,
-                        'AH': 8,
-                        'AN': 6,
-                        'AT': 6,
-                    };
-                    const pos = codePosition[seg as keyof typeof codePosition];
-                    if (pos !== undefined && cols[pos] === codeToSearch.toString()) {
+                    if (cols[pos] === codeToSearch.toString() || (vigenteCodeToSearch && cols[pos] === vigenteCodeToSearch.toString())) {
                         return acc + 1;
                     }
                     return acc;
+                }, 0);
+            } else if(seg === 'US') {
+                count = segmentLines.reduce((acc, line) => {
+                     return acc + (line.includes(`,${codeToSearch},`) || (vigenteCodeToSearch && line.includes(`,${vigenteCodeToSearch},`)) ? 1 : 0);
                 }, 0);
             }
 
@@ -222,9 +208,18 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
         globalCoincidences.push(coincidence);
     });
 
-    setCoincidenceReport({ prestador: prestadorInfo, data: globalCoincidences });
+    setCoincidenceReport({ prestadores: globalAf, data: globalCoincidences });
      toast({ title: "Reporte de coincidencias generado." });
   }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
 
   return (
     <Card className="shadow-lg mt-8">
@@ -297,11 +292,38 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                         <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-                            <p><strong>Prestador:</strong> {coincidenceReport.prestador.nombre}</p>
-                            <p><strong>Nit:</strong> {coincidenceReport.prestador.nit}</p>
-                            <p><strong>Contrato:</strong> {coincidenceReport.prestador.contrato}</p>
-                        </div>
+                        
+                        <Accordion type="single" collapsible className="w-full" defaultValue='item-0'>
+                           {Object.values(coincidenceReport.prestadores).map((prestador, index) => (
+                             <AccordionItem value={`item-${index}`} key={prestador.NI + index}>
+                               <AccordionTrigger>
+                                 <div className="flex items-center gap-2">
+                                   <Star className="text-amber-400" />
+                                   <span className="font-semibold">{prestador.nombrePrestador}</span>
+                                   <Badge variant="outline">NIT: {prestador.NI}</Badge>
+                                 </div>
+                               </AccordionTrigger>
+                               <AccordionContent>
+                                <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
+                                  <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
+                                  <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
+                                  <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
+                                  
+                                  <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
+                                  <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
+                                    {prestador.detalles.map((d, i) => (
+                                      <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                                    ))}
+                                  </ul>
+                                  <p className="font-bold text-lg text-right pt-2">
+                                    Valor LMA Total: <span className="text-primary">{formatCurrency(prestador.valorTotal)}</span>
+                                  </p>
+                                </div>
+                               </AccordionContent>
+                             </AccordionItem>
+                           ))}
+                        </Accordion>
+                        
                          <ScrollArea className="whitespace-nowrap rounded-md border">
                             <div className="max-h-96">
                                 <Table>
@@ -329,7 +351,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                                                 <TableCell className="text-xs">{row.nombre}</TableCell>
                                                 <TableCell className="text-xs">{row.tipoSer}</TableCell>
                                                 {Object.values(row.coincidences).map((count, i) => (
-                                                    <TableCell key={i} className="text-center text-xs">{count}</TableCell>
+                                                    <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
                                                 ))}
                                                 <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
                                             </TableRow>

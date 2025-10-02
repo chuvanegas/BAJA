@@ -51,6 +51,7 @@ export default function Home() {
             cupsData={cupsData}
             setCupsData={setCupsData}
             ripsFileContents={fileContents}
+            globalAf={globalAf}
           />
         </TabsContent>
       </Tabs>

@@ -54,10 +54,6 @@ export type Coincidence = {
 }
 
 export type CoincidenceReport = {
-    prestador: {
-        nombre: string;
-        nit: string;
-        contrato: string;
-    };
+    prestadores: GlobalAfSummary;
     data: Coincidence[];
 }
