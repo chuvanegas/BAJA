@@ -4,6 +4,8 @@ import { BarChartBig } from 'lucide-react';
 export default function Home() {
   return (
     <main className="container mx-auto px-4 py-8">
+      <p>esto debe ir al inicio</p>
+      <p>esto debe ir al inicio</p>
       <header className="text-center mb-10">
         <h1 className="text-4xl font-extrabold text-primary tracking-tight font-headline flex items-center justify-center gap-3">
           <BarChartBig className="w-10 h-10 text-accent" />
