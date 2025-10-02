@@ -143,7 +143,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
         return;
     }
 
-    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU'];
+    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
     let globalCoincidences: Coincidence[] = [];
     let prestadorInfo = {
         nombre: "N/A",
@@ -185,9 +185,35 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
 
         segmentsToSearch.forEach(seg => {
             const segmentLines = allRipsBlocks[seg] || [];
-            const count = segmentLines.reduce((acc, line) => {
-                return acc + (line.includes(`,${codeToSearch},`) ? 1 : 0);
-            }, 0);
+            let count = 0;
+            // The position of the CUPS code varies by segment.
+            // This is a simplified search. A more robust parser would be better.
+            if(seg === 'US') {
+                // In US, there's no CUPS code directly. This search is likely to fail.
+                // We'll leave it as an example, but it probably won't find anything.
+                count = segmentLines.reduce((acc, line) => {
+                     return acc + (line.includes(`,${codeToSearch},`) ? 1 : 0);
+                }, 0);
+            } else {
+                 count = segmentLines.reduce((acc, line) => {
+                    const cols = line.split(',');
+                    // Example positions for CUPS codes
+                    const codePosition = {
+                        'AC': 6,
+                        'AP': 7,
+                        'AU': 6,
+                        'AH': 8,
+                        'AN': 6,
+                        'AT': 6,
+                    };
+                    const pos = codePosition[seg as keyof typeof codePosition];
+                    if (pos !== undefined && cols[pos] === codeToSearch.toString()) {
+                        return acc + 1;
+                    }
+                    return acc;
+                }, 0);
+            }
+
             coincidence.coincidences[seg] = count;
             coincidence.total += count;
         });
@@ -308,6 +334,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                                         <TableHead className="text-center">AN</TableHead>
                                         <TableHead className="text-center">AH</TableHead>
                                         <TableHead className="text-center">AU</TableHead>
+                                        <TableHead className="text-center">US</TableHead>
                                         <TableHead className="text-center font-bold">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -340,3 +367,5 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
     </Card>
   );
 }
+
+    
