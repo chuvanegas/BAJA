@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Users, Search, AlertCircle, TrendingUp, Award } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea, ScrollBar } from '../ui/scroll-area';
+import { ScrollArea } from '../ui/scroll-area';
 import { parseRIPS } from '@/lib/rips-parser';
 import { Input } from '../ui/input';
 import type { UserData, CupsDataRow, UserActivity, ActivityRanking, UserRanking } from '@/lib/types';
@@ -20,7 +20,7 @@ interface UserAnalysisProps {
 
 const getGrupoEtario = (edad: number, unidadMedida: string): string => {
     const unidad = parseInt(unidadMedida, 10);
-    if (unidad > 1) return 'PRE INFANCIA';
+    if (isNaN(unidad) || unidad > 1) return 'PRE INFANCIA'; // Treat invalid unit as days for safety, thus Pre Infancia
     if (edad < 6) return 'PRE INFANCIA';
     if (edad < 12) return 'INFANCIA';
     if (edad < 18) return 'ADOLECENCIA';
@@ -61,7 +61,7 @@ const parseUser = (line: string): UserData | null => {
     municipio: cols[12],
     zona: cols[13],
     edadFormateada,
-    nombreCompleto: `${cols[6]} ${cols[7]} ${cols[4]} ${cols[5]}`.trim(),
+    nombreCompleto: `${cols[6]} ${cols[7]} ${cols[4]} ${cols[5]}`.trim().replace(/\s+/g, ' '),
     grupoEtario: getGrupoEtario(edad, unidadMedida),
     activities: [], // Initialize activities
   };
@@ -107,13 +107,12 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
 
     const activityCounts: Record<string, number> = {};
     const userActivityCounts: Record<string, number> = {};
-    const cupsMap = new Map(cupsData.map(c => [c.CUPS, c['NOMBRE CUPS']]));
-    if (cupsData[0]?.['CUPS VIGENTE']) {
-       cupsData.forEach(c => {
-         if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'], c['NOMBRE CUPS']);
-       });
-    }
-
+    
+    const cupsMap = new Map<string, string>();
+    cupsData.forEach(c => {
+        if (c.CUPS) cupsMap.set(c.CUPS.toString(), c['NOMBRE CUPS']);
+        if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'].toString(), c['NOMBRE CUPS']);
+    });
 
     const activitySegments = { 'AC': {user: 4, code: 6}, 'AP': {user: 5, code: 7}, 'AU': {user: 4, code: 6}, 'AH': {user: 5, code: 8}, 'AN': {user: 4, code: 6}, 'AT': {user: 4, code: 6} };
 
@@ -148,10 +147,13 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     })).sort((a,b) => b.count - a.count);
     setActivityRanking(rankedActivities);
 
-    const rankedUsers = Object.entries(userActivityCounts).map(([userId, count]) => ({
-        user: usersMap.get(userId)!,
-        count
-    })).sort((a,b) => b.count - a.count);
+    const rankedUsers = finalUsers
+      .map(user => ({
+        user,
+        count: user.activities.length,
+      }))
+      .filter(item => item.count > 0)
+      .sort((a,b) => b.count - a.count);
     setUserRanking(rankedUsers);
 
     toast({
@@ -261,14 +263,13 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                     className="max-w-sm"
                 />
             </div>
-            <ScrollArea className="whitespace-nowrap rounded-md border">
-              <div className="max-h-[500px]">
+            <ScrollArea className="whitespace-nowrap rounded-md border h-[500px]">
                  <Accordion type="single" collapsible className="w-full">
                     {filteredUsers.map(user => (
                         <AccordionItem value={user.numDoc} key={user.numDoc}>
                             <AccordionTrigger className='px-4 hover:no-underline hover:bg-muted/50'>
                                 <div className='flex justify-between w-full items-center'>
-                                   <div>
+                                   <div className='text-left'>
                                      <p className='font-semibold'>{user.nombreCompleto}</p>
                                      <p className='text-sm text-muted-foreground'>{user.tipoDoc} {user.numDoc}</p>
                                    </div>
@@ -305,8 +306,6 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                         </AccordionItem>
                     ))}
                  </Accordion>
-              </div>
-              <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
         )}

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import RipsProcessor from '@/components/rips/RipsProcessor';
 import DetailedReports from '@/components/rips/DetailedReports';
 import UserAnalysis from '@/components/rips/UserAnalysis';
-import { BarChartBig, LayoutGrid, FileSearch, Users, Star } from 'lucide-react';
+import { BarChartBig, LayoutGrid, FileSearch, Star } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GlobalAfSummary, ValidationResult, CupsDataRow, CoincidenceReport } from '@/lib/types';
 
