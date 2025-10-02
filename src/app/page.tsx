@@ -1,4 +1,5 @@
 import RipsProcessor from '@/components/rips/RipsProcessor';
+import DetailedReports from '@/components/rips/DetailedReports';
 import { BarChartBig } from 'lucide-react';
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
         </p>
       </header>
       <RipsProcessor />
+      <DetailedReports />
     </main>
   );
 }
