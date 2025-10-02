@@ -1,4 +1,5 @@
 export type AfDetail = {
+  inicio: string; // Keep original start date for sorting
   periodo: string;
   valor: number;
   archivo: string;

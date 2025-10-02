@@ -1,4 +1,9 @@
-import type { GlobalAfSummary } from './types';
+import type { GlobalAfSummary, AfDetail } from './types';
+
+function parseDate(dateStr: string): Date {
+    const [day, month, year] = dateStr.split('/');
+    return new Date(Number(year), Number(month) - 1, Number(day));
+}
 
 export function parseRIPS(text: string): Record<string, string[]> {
   const lines = (text || "").replace(/\r/g, "").split("\n");
@@ -92,7 +97,9 @@ export function extractAF(blocks: Record<string, string[]>, fileName: string): G
         
         // Logic to extract "ESPECIALIDADES_BASICA_URIBIA" from "2025_DUSAKAWI_ESPECIALIDADES_BASICA_URIBIA_SUBSIDIADO"
         const serviceParts = tipoServicioOriginal.split('_');
-        const tipoServicio = serviceParts.slice(2, serviceParts.length - 1).join('_');
+        // Remove year at start, provider name, and subsidado/contributivo at the end
+        const relevantParts = serviceParts.filter(part => !/^\d{4}$/.test(part) && part.toLowerCase() !== 'dusakawi' && part.toLowerCase() !== 'subidiado' && part.toLowerCase() !== 'contributivo');
+        const tipoServicio = relevantParts.join('_');
 
         const regimen = tipoServicioOriginal.toUpperCase().includes("SUBSIDIADO") ? "SUBSIDIADO" : "CONTRIBUTIVO";
         const valorNeto = parseFloat(cols[16] || "0");
@@ -101,9 +108,13 @@ export function extractAF(blocks: Record<string, string[]>, fileName: string): G
         if (!afInfo[key]) {
           afInfo[key] = { nombrePrestador, NI, contrato, tipoServicio, regimen, detalles: [], valorTotal: 0 };
         }
-        afInfo[key].detalles.push({ periodo: `${inicio} a ${fin}`, valor: valorNeto, archivo: fileName });
+        afInfo[key].detalles.push({ inicio, periodo: `${inicio} a ${fin}`, valor: valorNeto, archivo: fileName });
         afInfo[key].valorTotal += isNaN(valorNeto) ? 0 : valorNeto;
       }
+    });
+
+    Object.values(afInfo).forEach(provider => {
+        provider.detalles.sort((a, b) => parseDate(a.inicio).getTime() - parseDate(b.inicio).getTime());
     });
   }
   return afInfo;
