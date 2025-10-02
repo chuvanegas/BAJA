@@ -191,18 +191,18 @@ export default function DetailedReports() {
               <Table>
                 <TableHeader className="sticky top-0 bg-muted">
                   <TableRow>
-                    <TableHead>Tipo Ser</TableHead>
                     <TableHead>CUPS</TableHead>
                     <TableHead>CUPS Vigente</TableHead>
+                    <TableHead>Tipo Ser</TableHead>
                     <TableHead>Nombre CUPS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {cupsData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell className="text-xs">{row['Tipo Ser']}</TableCell>
                       <TableCell className="font-mono text-xs">{row['CUPS']}</TableCell>
                       <TableCell className="font-mono text-xs">{row['CUPS VIGENTE']}</TableCell>
+                      <TableCell className="text-xs">{row['Tipo Ser']}</TableCell>
                       <TableCell className="text-xs">{row['NOMBRE CUPS']}</TableCell>
                     </TableRow>
                   ))}
