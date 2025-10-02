@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { FileSearch, Upload, File, X, Cog, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "../ui/scroll-area";
+
+// Define a type for the CUPS data row
+type CupsDataRow = {
+  'Tipo Ser': string;
+  'CUPS': string;
+  'CUPS VIGENTE': string;
+  'NOMBRE CUPS': string;
+};
 
 export default function DetailedReports() {
   const [cupsFile, setCupsFile] = useState<File | null>(null);
-  const [recordCount, setRecordCount] = useState<number | null>(null);
+  const [cupsData, setCupsData] = useState<CupsDataRow[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -18,9 +28,8 @@ export default function DetailedReports() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Reset state when a new file is loaded
       setCupsFile(file);
-      setRecordCount(null);
+      setCupsData([]); // Reset data when a new file is loaded
       toast({
         title: "Archivo cargado",
         description: `Se ha seleccionado el archivo: ${file.name}`,
@@ -34,7 +43,7 @@ export default function DetailedReports() {
   
   const handleRemoveFile = () => {
     setCupsFile(null);
-    setRecordCount(null);
+    setCupsData([]);
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
@@ -47,33 +56,43 @@ export default function DetailedReports() {
     if (!cupsFile) return;
 
     setIsProcessing(true);
-    setRecordCount(null);
+    setCupsData([]);
     const reader = new FileReader();
 
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        let count = 0;
+        let jsonData: CupsDataRow[] = [];
         
-        if (cupsFile.name.endsWith('.xlsx')) {
-          const workbook = XLSX.read(data, { type: 'binary' });
+        if (cupsFile.name.endsWith('.xlsx') || cupsFile.name.endsWith('.csv') || cupsFile.name.endsWith('.txt')) {
+          const workbook = cupsFile.name.endsWith('.xlsx') ? XLSX.read(data, { type: 'binary' }) : XLSX.read(data, { type: 'string' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          // Assuming first row is header
-          count = json.length > 0 ? json.length -1 : 0;
-        } else if (cupsFile.name.endsWith('.csv') || cupsFile.name.endsWith('.txt')) {
-          const text = data as string;
-          // Assuming lines are records and first line is header.
-          const lines = text.split('\n').filter(line => line.trim() !== '');
-          count = lines.length > 0 ? lines.length - 1 : 0;
+          jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
         } else if (cupsFile.name.endsWith('.xml')) {
             const text = data as string;
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(text, "application/xml");
-            // A simple heuristic: count a common item tag. This might need adjustment.
-            const items = xmlDoc.getElementsByTagName('row'); // A common tag in XML exports
-            count = items.length;
+            
+            // This is a simple XML parser assuming a structure like <rows><row><column>value</column>...</row></rows>
+            // This needs to be adapted to the actual XML structure.
+            const rows = Array.from(xmlDoc.getElementsByTagName('row'));
+            if (rows.length > 0) {
+              const headers = Array.from(rows[0].children).map(child => child.tagName);
+              jsonData = rows.map(row => {
+                const rowData: any = {};
+                Array.from(row.children).forEach((child, index) => {
+                  rowData[headers[index]] = child.textContent;
+                });
+                return rowData as CupsDataRow;
+              });
+            } else {
+               toast({
+                title: "Formato XML no estándar",
+                description: "No se pudieron encontrar filas ('<row>') en el XML.",
+                variant: "destructive"
+              });
+            }
         } else {
             toast({
                 title: "Formato no soportado",
@@ -84,17 +103,17 @@ export default function DetailedReports() {
             return;
         }
 
-        setRecordCount(count);
+        setCupsData(jsonData);
         toast({
           title: "Procesamiento completo",
-          description: `Se encontraron ${count} registros.`,
+          description: `Se encontraron y cargaron ${jsonData.length} registros.`,
         });
 
       } catch (error) {
         console.error("Error processing file:", error);
         toast({
           title: "Error al procesar",
-          description: "No se pudo leer el contenido del archivo.",
+          description: "No se pudo leer el contenido del archivo. Verifique el formato.",
           variant: "destructive",
         });
       } finally {
@@ -159,19 +178,43 @@ export default function DetailedReports() {
             </div>
         )}
 
-        {recordCount !== null && (
+        {cupsData.length > 0 && (
+          <div className="space-y-4">
             <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
                 <CheckCircle className="w-6 h-6 text-green-600" />
                 <div>
                     <p className="font-semibold text-green-700 dark:text-green-400">¡Archivo procesado con éxito!</p>
-                    <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{recordCount}</span> registros del mapeo de CUPS.</p>
+                    <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros del mapeo de CUPS.</p>
                 </div>
             </div>
+            <ScrollArea className="h-72 w-full rounded-md border">
+              <Table>
+                <TableHeader className="sticky top-0 bg-muted">
+                  <TableRow>
+                    <TableHead>Tipo Ser</TableHead>
+                    <TableHead>CUPS</TableHead>
+                    <TableHead>CUPS Vigente</TableHead>
+                    <TableHead>Nombre CUPS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cupsData.map((row, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-xs">{row['Tipo Ser']}</TableCell>
+                      <TableCell className="font-mono text-xs">{row['CUPS']}</TableCell>
+                      <TableCell className="font-mono text-xs">{row['CUPS VIGENTE']}</TableCell>
+                      <TableCell className="text-xs">{row['NOMBRE CUPS']}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
         )}
 
-        {recordCount === null && !cupsFile && (
+        {cupsData.length === 0 && !cupsFile && (
             <div className="text-center text-muted-foreground p-8">
-            <p>Próximamente: Reportes detallados aquí.</p>
+              <p>Cargue un archivo de mapeo para empezar.</p>
             </div>
         )}
       </CardContent>
