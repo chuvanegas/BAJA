@@ -114,14 +114,14 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
         if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'].toString(), c['NOMBRE CUPS']);
     });
 
-    const activitySegments = { 'AC': {user: 4, code: 6}, 'AP': {user: 5, code: 7}, 'AU': {user: 4, code: 6}, 'AH': {user: 5, code: 8}, 'AN': {user: 4, code: 6}, 'AT': {user: 4, code: 6} };
+    const activitySegments = { 'AC': {user: 4, code: 5}, 'AP': {user: 5, code: 6}, 'AU': {user: 4, code: 5}, 'AH': {user: 5, code: 7}, 'AN': {user: 4, code: 5}, 'AT': {user: 4, code: 5} };
 
     for (const seg in activitySegments) {
         if(allRipsBlocks[seg]) {
             const { user: userPos, code: codePos } = activitySegments[seg as keyof typeof activitySegments];
             allRipsBlocks[seg].forEach(line => {
                 const cols = line.split(',');
-                const userId = cols[userPos -1];
+                const userId = cols[userPos];
                 const cupsCode = cols[codePos];
 
                 if(userId && cupsCode) {
