@@ -16,7 +16,9 @@ import {
   BrainCircuit,
   FileText,
   LoaderCircle,
-  AlertTriangle
+  AlertTriangle,
+  FilePlus,
+  Star
 } from 'lucide-react';
 import { type GlobalAfSummary, type ValidationResult, type AnalysisTarget } from '@/lib/types';
 import { parseRIPS, expectedFromCT, foundBySegment, extractAF } from '@/lib/rips-parser';
@@ -151,7 +153,13 @@ export default function RipsProcessor() {
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
-        <CardContent className="pt-6">
+        <CardHeader>
+             <CardTitle className="flex items-center gap-2">
+                <FilePlus /> Cargar Archivos
+            </CardTitle>
+            <CardDescription>Seleccione uno o más archivos RIPS (.txt) para iniciar el proceso.</CardDescription>
+        </CardHeader>
+        <CardContent>
           <div className="flex flex-col md:flex-row items-center justify-center gap-4">
             <Input id="fileInput" type="file" multiple onChange={handleFileChange} className="max-w-xs cursor-pointer file:text-primary file:font-semibold" />
             <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -174,17 +182,17 @@ export default function RipsProcessor() {
           Validando archivos...
         </div>
       }
-
+      
       {Object.keys(globalAf).length > 0 && !isPending && (
         <Card>
           <CardHeader>
-            <CardTitle>📌 Resumen de Prestadores (AF)</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Star className="text-amber-400"/> Resumen de Prestadores (AF)</CardTitle>
             <CardDescription>Resumen consolidado de todos los archivos AF cargados.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {Object.values(globalAf).map(af => (
-              <Card key={af.NI} className="p-4 border-l-4 border-primary">
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <Card key={af.NI} className="p-6 border-l-4 border-primary bg-card/50">
+                <div className="space-y-2 text-sm">
                     <p><strong>Nombre del prestador:</strong> <span className="text-muted-foreground">{af.nombrePrestador}</span></p>
                     <p><strong>NI:</strong> <span className="text-muted-foreground">{af.NI}</span></p>
                     <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{af.contrato}</span></p>
@@ -192,12 +200,14 @@ export default function RipsProcessor() {
                     <p><strong>Régimen:</strong> <span className="text-muted-foreground">{af.regimen}</span></p>
                 </div>
                 <Separator className="my-4" />
-                <h4 className="font-semibold mb-2">Periodos de radicación y valores:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                  {af.detalles.map((d, i) => (
-                    <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
-                  ))}
-                </ul>
+                <div>
+                  <h4 className="font-semibold mb-2">Periodos de radicación y valores:</h4>
+                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                    {af.detalles.map((d, i) => (
+                      <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                    ))}
+                  </ul>
+                </div>
                 <Separator className="my-4" />
                 <p className="font-bold text-lg text-right">
                   Valor LMA Total: <span className="text-primary">{formatCurrency(af.valorTotal)}</span>
