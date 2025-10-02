@@ -75,4 +75,5 @@ export type UserData = {
   zona: string;
   edadFormateada: string;
   nombreCompleto: string;
+  grupoEtario: string;
 };

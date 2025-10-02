@@ -15,6 +15,21 @@ interface UserAnalysisProps {
   ripsFileContents: Record<string, string>;
 }
 
+const getGrupoEtario = (edad: number, unidadMedida: string): string => {
+    const unidad = parseInt(unidadMedida, 10);
+    if (unidad > 1) { // Meses o Días
+        return 'PRE INFANCIA';
+    }
+    // La unidad es Años
+    if (edad < 6) return 'PRE INFANCIA';
+    if (edad < 12) return 'INFANCIA';
+    if (edad < 18) return 'ADOLECENCIA';
+    if (edad < 29) return 'JUVENTUD';
+    if (edad < 60) return 'ADULTEZ';
+    return 'VEJEZ';
+};
+
+
 const parseUser = (line: string): UserData | null => {
   const cols = line.split(',');
   if (cols.length < 15) return null;
@@ -48,6 +63,7 @@ const parseUser = (line: string): UserData | null => {
     zona: cols[13],
     edadFormateada,
     nombreCompleto: `${cols[6]} ${cols[7]} ${cols[4]} ${cols[5]}`.trim(),
+    grupoEtario: getGrupoEtario(edad, unidadMedida),
   };
 };
 
@@ -104,7 +120,7 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
           <Users /> Análisis de Usuarios (US)
         </CardTitle>
         <CardDescription>
-          Procese los archivos de usuarios y visualice la información detallada, incluyendo la edad calculada.
+          Procese los archivos de usuarios y visualice la información detallada, incluyendo la edad calculada y el grupo etario.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -135,6 +151,7 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
                       <TableHead>Número Documento</TableHead>
                       <TableHead>Nombre Completo</TableHead>
                       <TableHead>Edad</TableHead>
+                      <TableHead>Grupo Etario</TableHead>
                       <TableHead>Sexo</TableHead>
                       <TableHead>Departamento</TableHead>
                       <TableHead>Municipio</TableHead>
@@ -147,6 +164,7 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
                         <TableCell className="font-medium">{user.numDoc}</TableCell>
                         <TableCell>{user.nombreCompleto}</TableCell>
                         <TableCell className="text-center font-mono text-sm">{user.edadFormateada}</TableCell>
+                        <TableCell>{user.grupoEtario}</TableCell>
                         <TableCell className="text-center">{user.sexo}</TableCell>
                         <TableCell>{user.departamento}</TableCell>
                         <TableCell>{user.municipio}</TableCell>
