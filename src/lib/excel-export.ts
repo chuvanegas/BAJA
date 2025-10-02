@@ -79,11 +79,11 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
     }
 
     const wb = XLSX.utils.book_new();
-    const headers = ["CUPS", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total"];
+    const headers = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total"];
     
     const dataToExport = report.data.map(row => {
         const coincidences = Object.values(row.coincidences);
-        return [row.cups, row.nombre, row.tipoSer, ...coincidences, row.total];
+        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total];
     });
 
     const wsData = [
@@ -101,6 +101,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
 
     ws['!cols'] = [
         { wch: 15 }, // CUPS
+        { wch: 15 }, // CUPS Vigente
         { wch: 50 }, // Nombre CUPS
         { wch: 25 }, // Tipo Ser
         ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments

@@ -308,6 +308,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                                     <TableHeader className="sticky top-0 bg-muted">
                                         <TableRow>
                                             <TableHead className="min-w-[100px]">CUPS</TableHead>
+                                            <TableHead className="min-w-[100px]">CUPS Vigente</TableHead>
                                             <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
                                             <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
                                             <TableHead className="text-center">AP</TableHead>
@@ -324,6 +325,7 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                                         {coincidenceReport.data.map((row, index) => (
                                             <TableRow key={index}>
                                                 <TableCell className="font-mono text-xs">{row.cups}</TableCell>
+                                                <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
                                                 <TableCell className="text-xs">{row.nombre}</TableCell>
                                                 <TableCell className="text-xs">{row.tipoSer}</TableCell>
                                                 {Object.values(row.coincidences).map((count, i) => (
