@@ -1,15 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { GlobalAfSummary } from './types';
 
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
 export const exportToExcel = (globalAF: GlobalAfSummary) => {
   if (Object.keys(globalAF).length === 0) {
     console.error("No hay datos AF para exportar");
@@ -62,7 +53,7 @@ export const exportToExcel = (globalAF: GlobalAfSummary) => {
     individualData.push(["TOTAL", af.valorTotal]);
 
     const ws = XLSX.utils.aoa_to_sheet(individualData);
-    ws['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 30 }];
+    ws['!cols'] = [{ wch: 30 }, { wch: 40 }, { wch: 30 }];
      Object.keys(ws).forEach(key => {
       if(key.startsWith('B')) {
         const cell = ws[key];

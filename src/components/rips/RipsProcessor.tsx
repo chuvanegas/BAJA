@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeValidationError, AnalyzeValidationErrorOutput } from '@/ai/flows/error-analysis-tool';
 import {
@@ -23,6 +22,7 @@ import { type GlobalAfSummary, type ValidationResult, type AnalysisTarget } from
 import { parseRIPS, expectedFromCT, foundBySegment, extractAF } from '@/lib/rips-parser';
 import { exportToExcel } from '@/lib/excel-export';
 import { ErrorAnalysisDialog } from './ErrorAnalysisDialog';
+import { Separator } from '@/components/ui/separator';
 
 export default function RipsProcessor() {
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
@@ -181,27 +181,29 @@ export default function RipsProcessor() {
             <CardTitle>📌 Resumen de Prestadores (AF)</CardTitle>
             <CardDescription>Resumen consolidado de todos los archivos AF cargados.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {Object.values(globalAf).map(af => (
-                <AccordionItem value={af.NI} key={af.NI}>
-                  <AccordionTrigger className="font-semibold text-base">{af.nombrePrestador}</AccordionTrigger>
-                  <AccordionContent className="space-y-4 pt-4">
-                    <p><strong>NI:</strong> {af.NI}</p>
-                    <p><strong>Número de contrato:</strong> {af.contrato}</p>
-                    <p><strong>Tipo de servicio:</strong> {af.tipoServicio}</p>
-                    <p><strong>Régimen:</strong> {af.regimen}</p>
-                    <p><strong>Periodos de radicación y valores:</strong></p>
-                    <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                      {af.detalles.map((d, i) => (
-                        <li key={i}>{d.periodo} → {formatCurrency(d.valor)} <span className="text-xs"> (Archivo: {d.archivo})</span></li>
-                      ))}
-                    </ul>
-                    <p className="font-bold text-lg"><strong>Valor LMA Total:</strong> {formatCurrency(af.valorTotal)}</p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+          <CardContent className="space-y-6">
+            {Object.values(globalAf).map(af => (
+              <Card key={af.NI} className="p-4 border-l-4 border-primary">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    <p><strong>Nombre del prestador:</strong> <span className="text-muted-foreground">{af.nombrePrestador}</span></p>
+                    <p><strong>NI:</strong> <span className="text-muted-foreground">{af.NI}</span></p>
+                    <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{af.contrato}</span></p>
+                    <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{af.tipoServicio}</span></p>
+                    <p><strong>Régimen:</strong> <span className="text-muted-foreground">{af.regimen}</span></p>
+                </div>
+                <Separator className="my-4" />
+                <h4 className="font-semibold mb-2">Periodos de radicación y valores:</h4>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                  {af.detalles.map((d, i) => (
+                    <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                  ))}
+                </ul>
+                <Separator className="my-4" />
+                <p className="font-bold text-lg text-right">
+                  Valor LMA Total: <span className="text-primary">{formatCurrency(af.valorTotal)}</span>
+                </p>
+              </Card>
+            ))}
           </CardContent>
           <CardFooter>
             <Button onClick={() => exportToExcel(globalAf)}>

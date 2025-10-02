@@ -34,15 +34,15 @@ export function extractAF(blocks: Record<string, string[]>, fileName: string): G
   if (blocks.AF) {
     blocks.AF.forEach(row => {
       const cols = row.split(",");
-      if (cols.length >= 10) {
+      if (cols.length >= 17) {
         const nombrePrestador = cols[1];
         const NI = cols[3];
-        const inicio = cols[5];
-        const fin = cols[6];
+        const inicio = cols[6];
+        const fin = cols[7];
         const contrato = cols[10];
         const tipoServicio = cols[11];
         const regimen = cols[12];
-        const valorNeto = parseFloat(cols[cols.length - 1] || "0");
+        const valorNeto = parseFloat(cols[16] || "0");
         const key = `${NI}-${nombrePrestador}`;
 
         if (!afInfo[key]) {
