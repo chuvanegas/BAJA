@@ -4,12 +4,13 @@ import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSearch, Upload, File, X, Cog, CheckCircle, Search } from "lucide-react";
+import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
+import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import type { CupsDataRow, Coincidence, CoincidenceReport } from "@/lib/types";
 
 interface DetailedReportsProps {
@@ -318,16 +319,18 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                         <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <p><strong>Prestador:</strong> {coincidenceReport.prestador.nombre}</p>
-                        <p><strong>Nit:</strong> {coincidenceReport.prestador.nit}</p>
-                        <p><strong>Contrato:</strong> {coincidenceReport.prestador.contrato}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
+                            <p><strong>Prestador:</strong> {coincidenceReport.prestador.nombre}</p>
+                            <p><strong>Nit:</strong> {coincidenceReport.prestador.nit}</p>
+                            <p><strong>Contrato:</strong> {coincidenceReport.prestador.contrato}</p>
+                        </div>
                          <ScrollArea className="h-96 w-full rounded-md border">
                             <Table>
                                 <TableHeader className="sticky top-0 bg-muted">
                                     <TableRow>
-                                        <TableHead>CUPS</TableHead>
-                                        <TableHead>Nombre CUPS</TableHead>
-                                        <TableHead>Tipo Ser</TableHead>
+                                        <TableHead className="min-w-[100px]">CUPS</TableHead>
+                                        <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
+                                        <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
                                         <TableHead className="text-center">AP</TableHead>
                                         <TableHead className="text-center">AC</TableHead>
                                         <TableHead className="text-center">AT</TableHead>
@@ -353,6 +356,12 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
                                 </TableBody>
                             </Table>
                          </ScrollArea>
+                         <div className="flex justify-end pt-4">
+                            <Button onClick={() => exportCoincidenceToExcel(coincidenceReport)}>
+                                <Download className="mr-2"/>
+                                Exportar Reporte a Excel
+                            </Button>
+                         </div>
                     </CardContent>
                 </Card>
             </div>
@@ -367,5 +376,3 @@ export default function DetailedReports({ cupsData, setCupsData, ripsFileContent
     </Card>
   );
 }
-
-    

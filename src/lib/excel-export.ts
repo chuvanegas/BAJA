@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { GlobalAfSummary } from './types';
+import type { GlobalAfSummary, CoincidenceReport } from './types';
 
 export const exportToExcel = (globalAF: GlobalAfSummary) => {
   if (Object.keys(globalAF).length === 0) {
@@ -70,3 +70,47 @@ export const exportToExcel = (globalAF: GlobalAfSummary) => {
 
   XLSX.writeFile(wb, "Resumen_AF.xlsx");
 };
+
+
+export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
+    if (!report) {
+        console.error("No hay datos de coincidencia para exportar");
+        return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    const headers = ["CUPS", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total"];
+    
+    const dataToExport = report.data.map(row => {
+        const coincidences = Object.values(row.coincidences);
+        return [row.cups, row.nombre, row.tipoSer, ...coincidences, row.total];
+    });
+
+    const wsData = [
+        ["Reporte de Coincidencias CUPS"],
+        [],
+        ["Prestador:", report.prestador.nombre],
+        ["Nit:", report.prestador.nit],
+        ["Contrato:", report.prestador.contrato],
+        [],
+        headers,
+        ...dataToExport
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+        { wch: 15 }, // CUPS
+        { wch: 50 }, // Nombre CUPS
+        { wch: 25 }, // Tipo Ser
+        ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
+        { wch: 10 }  // Total
+    ];
+    
+    // Merge title cell
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+
+
+    XLSX.utils.book_append_sheet(wb, ws, "Coincidencias_CUPS");
+    XLSX.writeFile(wb, "Reporte_Coincidencias_CUPS.xlsx");
+}
