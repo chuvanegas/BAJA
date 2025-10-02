@@ -88,8 +88,13 @@ export function extractAF(blocks: Record<string, string[]>, fileName: string): G
         const inicio = cols[6];
         const fin = cols[7];
         const contrato = cols[10];
-        const tipoServicio = cols[11];
-        const regimen = "SUBSIDIADO"; // This seems to be static in your example.
+        const tipoServicioOriginal = cols[11];
+        
+        // Logic to extract "ESPECIALIDADES_BASICA_URIBIA" from "2025_DUSAKAWI_ESPECIALIDADES_BASICA_URIBIA_SUBSIDIADO"
+        const serviceParts = tipoServicioOriginal.split('_');
+        const tipoServicio = serviceParts.slice(2, serviceParts.length - 1).join('_');
+
+        const regimen = tipoServicioOriginal.toUpperCase().includes("SUBSIDIADO") ? "SUBSIDIADO" : "CONTRIBUTIVO";
         const valorNeto = parseFloat(cols[16] || "0");
         const key = `${NI}-${nombrePrestador}`;
 

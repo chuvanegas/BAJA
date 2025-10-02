@@ -190,29 +190,24 @@ export default function RipsProcessor() {
             <CardDescription>Resumen consolidado de todos los archivos AF cargados.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {Object.values(globalAf).map(af => (
-              <Card key={af.NI} className="p-6 border-l-4 border-primary bg-card/50">
-                <div className="space-y-2 text-sm">
-                    <p><strong>Nombre del prestador:</strong> <span className="text-muted-foreground">{af.nombrePrestador}</span></p>
-                    <p><strong>NI:</strong> <span className="text-muted-foreground">{af.NI}</span></p>
-                    <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{af.contrato}</span></p>
-                    <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{af.tipoServicio}</span></p>
-                    <p><strong>Régimen:</strong> <span className="text-muted-foreground">{af.regimen}</span></p>
-                </div>
-                <Separator className="my-4" />
-                <div>
-                  <h4 className="font-semibold mb-2">Periodos de radicación y valores:</h4>
-                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                    {af.detalles.map((d, i) => (
-                      <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
-                    ))}
-                  </ul>
-                </div>
-                <Separator className="my-4" />
-                <p className="font-bold text-lg text-right">
+            {Object.values(globalAf).map((af, index) => (
+              <div key={af.NI + index} className="p-4 border rounded-lg bg-card/50 space-y-2">
+                <p><strong>Nombre del prestador:</strong> <span className="text-muted-foreground">{af.nombrePrestador}</span></p>
+                <p><strong>NI:</strong> <span className="text-muted-foreground">{af.NI}</span></p>
+                <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{af.contrato}</span></p>
+                <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{af.tipoServicio}</span></p>
+                <p><strong>Régimen:</strong> <span className="text-muted-foreground">{af.regimen}</span></p>
+                
+                <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
+                <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
+                  {af.detalles.map((d, i) => (
+                    <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                  ))}
+                </ul>
+                <p className="font-bold text-lg text-right pt-2">
                   Valor LMA Total: <span className="text-primary">{formatCurrency(af.valorTotal)}</span>
                 </p>
-              </Card>
+              </div>
             ))}
           </CardContent>
           <CardFooter>
