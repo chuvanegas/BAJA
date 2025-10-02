@@ -121,7 +121,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
             const { user: userPos, code: codePos } = activitySegments[seg as keyof typeof activitySegments];
             allRipsBlocks[seg].forEach(line => {
                 const cols = line.split(',');
-                const userId = cols[userPos];
+                const userId = cols[userPos -1];
                 const cupsCode = cols[codePos];
 
                 if(userId && cupsCode) {
