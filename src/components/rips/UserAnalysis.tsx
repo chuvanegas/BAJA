@@ -19,14 +19,17 @@ interface UserAnalysisProps {
 }
 
 const getGrupoEtario = (edad: number, unidadMedida: string): string => {
-    const unidad = parseInt(unidadMedida, 10);
-    if (isNaN(unidad) || unidad > 1) return 'PRE INFANCIA'; // Treat invalid unit as days for safety, thus Pre Infancia
-    if (edad < 6) return 'PRE INFANCIA';
-    if (edad < 12) return 'INFANCIA';
-    if (edad < 18) return 'ADOLECENCIA';
-    if (edad < 29) return 'JUVENTUD';
-    if (edad < 60) return 'ADULTEZ';
-    return 'VEJEZ';
+    if (isNaN(edad) || !unidadMedida) return 'NO ESPECIFICADO';
+    if (unidadMedida === '1') { // Años
+        if (edad < 6) return 'PRE INFANCIA';
+        if (edad < 12) return 'INFANCIA';
+        if (edad < 18) return 'ADOLECENCIA';
+        if (edad < 29) return 'JUVENTUD';
+        if (edad < 60) return 'ADULTEZ';
+        return 'VEJEZ';
+    } else { // Meses (2) o Días (3)
+        return 'PRE INFANCIA';
+    }
 };
 
 const parseUser = (line: string): UserData | null => {
@@ -114,13 +117,15 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
         if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'].toString(), c['NOMBRE CUPS']);
     });
 
-    const activitySegments = { 'AC': {user: 4, code: 5}, 'AP': {user: 5, code: 6}, 'AU': {user: 4, code: 5}, 'AH': {user: 5, code: 7}, 'AN': {user: 4, code: 5}, 'AT': {user: 4, code: 5} };
+    const activitySegments = { 'AC': {user: 4, code: 6}, 'AP': {user: 5, code: 7}, 'AU': {user: 4, code: 6}, 'AH': {user: 5, code: 8}, 'AN': {user: 4, code: 6}, 'AT': {user: 4, code: 6} };
 
     for (const seg in activitySegments) {
         if(allRipsBlocks[seg]) {
             const { user: userPos, code: codePos } = activitySegments[seg as keyof typeof activitySegments];
             allRipsBlocks[seg].forEach(line => {
                 const cols = line.split(',');
+                if (cols.length <= Math.max(userPos, codePos)) return;
+                
                 const userId = cols[userPos];
                 const cupsCode = cols[codePos];
 
@@ -320,3 +325,5 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     </Card>
   );
 }
+
+    
