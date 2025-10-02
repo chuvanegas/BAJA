@@ -42,6 +42,7 @@ export type CupsDataRow = {
   'CUPS': string;
   'CUPS VIGENTE': string;
   'NOMBRE CUPS': string;
+  [key: string]: any; // Allow other properties
 };
 
 export type Coincidence = {
@@ -56,6 +57,12 @@ export type Coincidence = {
 export type CoincidenceReport = {
     prestadores: GlobalAfSummary;
     data: Coincidence[];
+}
+
+export type UserActivity = {
+  segment: string;
+  cups: string;
+  description: string;
 }
 
 export type UserData = {
@@ -76,4 +83,16 @@ export type UserData = {
   edadFormateada: string;
   nombreCompleto: string;
   grupoEtario: string;
+  activities: UserActivity[];
+};
+
+export type ActivityRanking = {
+  cups: string;
+  description: string;
+  count: number;
+};
+
+export type UserRanking = {
+  user: UserData;
+  count: number;
 };

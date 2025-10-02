@@ -3,24 +3,24 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Search, AlertCircle } from 'lucide-react';
+import { Users, Search, AlertCircle, TrendingUp, Award } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { parseRIPS } from '@/lib/rips-parser';
 import { Input } from '../ui/input';
-import type { UserData } from '@/lib/types';
+import type { UserData, CupsDataRow, UserActivity, ActivityRanking, UserRanking } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Badge } from '../ui/badge';
 
 interface UserAnalysisProps {
   ripsFileContents: Record<string, string>;
+  cupsData: CupsDataRow[];
 }
 
 const getGrupoEtario = (edad: number, unidadMedida: string): string => {
     const unidad = parseInt(unidadMedida, 10);
-    if (unidad > 1) { // Meses o Días
-        return 'PRE INFANCIA';
-    }
-    // La unidad es Años
+    if (unidad > 1) return 'PRE INFANCIA';
     if (edad < 6) return 'PRE INFANCIA';
     if (edad < 12) return 'INFANCIA';
     if (edad < 18) return 'ADOLECENCIA';
@@ -28,7 +28,6 @@ const getGrupoEtario = (edad: number, unidadMedida: string): string => {
     if (edad < 60) return 'ADULTEZ';
     return 'VEJEZ';
 };
-
 
 const parseUser = (line: string): UserData | null => {
   const cols = line.split(',');
@@ -64,42 +63,100 @@ const parseUser = (line: string): UserData | null => {
     edadFormateada,
     nombreCompleto: `${cols[6]} ${cols[7]} ${cols[4]} ${cols[5]}`.trim(),
     grupoEtario: getGrupoEtario(edad, unidadMedida),
+    activities: [], // Initialize activities
   };
 };
 
-export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
+export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysisProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [activityRanking, setActivityRanking] = useState<ActivityRanking[]>([]);
+  const [userRanking, setUserRanking] = useState<UserRanking[]>([]);
   const [filter, setFilter] = useState('');
   const { toast } = useToast();
 
   const handleProcessUsers = () => {
     if (Object.keys(ripsFileContents).length === 0) {
-      toast({
-        title: 'No hay archivos RIPS cargados',
-        description: 'Por favor, cargue y valide los archivos en la pestaña "Validador RIPS" primero.',
-        variant: 'destructive',
-      });
+      toast({ title: 'No hay archivos RIPS cargados', variant: 'destructive' });
       return;
+    }
+    if (cupsData.length === 0) {
+        toast({ title: 'No hay mapeo CUPS', description: 'Cargue un archivo de mapeo en "Reportes Detallados".', variant: 'destructive' });
+        return;
     }
     setIsProcessing(true);
 
-    let allUsers: UserData[] = [];
+    let allRipsBlocks: Record<string, string[]> = {};
     for (const content of Object.values(ripsFileContents)) {
-      const blocks = parseRIPS(content);
-      if (blocks['US']) {
-        const parsedUsers = blocks['US'].map(parseUser).filter((u): u is UserData => u !== null);
-        allUsers.push(...parsedUsers);
-      }
+        const blocks = parseRIPS(content);
+        for (const segment in blocks) {
+            if (!allRipsBlocks[segment]) allRipsBlocks[segment] = [];
+            allRipsBlocks[segment].push(...blocks[segment]);
+        }
     }
     
-    // Remove duplicates by numDoc
-    const uniqueUsers = Array.from(new Map(allUsers.map(user => [user.numDoc, user])).values());
+    const usersMap = new Map<string, UserData>();
+    if (allRipsBlocks['US']) {
+        allRipsBlocks['US'].forEach(line => {
+            const user = parseUser(line);
+            if(user && !usersMap.has(user.numDoc)) {
+                usersMap.set(user.numDoc, user);
+            }
+        });
+    }
 
-    setUsers(uniqueUsers);
+    const activityCounts: Record<string, number> = {};
+    const userActivityCounts: Record<string, number> = {};
+    const cupsMap = new Map(cupsData.map(c => [c.CUPS, c['NOMBRE CUPS']]));
+    if (cupsData[0]?.['CUPS VIGENTE']) {
+       cupsData.forEach(c => {
+         if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'], c['NOMBRE CUPS']);
+       });
+    }
+
+
+    const activitySegments = { 'AC': {user: 4, code: 6}, 'AP': {user: 5, code: 7}, 'AU': {user: 4, code: 6}, 'AH': {user: 5, code: 8}, 'AN': {user: 4, code: 6}, 'AT': {user: 4, code: 6} };
+
+    for (const seg in activitySegments) {
+        if(allRipsBlocks[seg]) {
+            const { user: userPos, code: codePos } = activitySegments[seg as keyof typeof activitySegments];
+            allRipsBlocks[seg].forEach(line => {
+                const cols = line.split(',');
+                const userId = cols[userPos];
+                const cupsCode = cols[codePos];
+
+                if(userId && cupsCode) {
+                    const user = usersMap.get(userId);
+                    if(user) {
+                        const activity: UserActivity = { segment: seg, cups: cupsCode, description: cupsMap.get(cupsCode) || 'Descripción no encontrada' };
+                        user.activities.push(activity);
+                        userActivityCounts[userId] = (userActivityCounts[userId] || 0) + 1;
+                    }
+                    activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
+                }
+            });
+        }
+    }
+
+    const finalUsers = Array.from(usersMap.values());
+    setUsers(finalUsers);
+
+    const rankedActivities = Object.entries(activityCounts).map(([cups, count]) => ({
+        cups,
+        description: cupsMap.get(cups) || 'Descripción no encontrada',
+        count
+    })).sort((a,b) => b.count - a.count);
+    setActivityRanking(rankedActivities);
+
+    const rankedUsers = Object.entries(userActivityCounts).map(([userId, count]) => ({
+        user: usersMap.get(userId)!,
+        count
+    })).sort((a,b) => b.count - a.count);
+    setUserRanking(rankedUsers);
+
     toast({
-      title: 'Análisis de usuarios completado',
-      description: `Se encontraron ${uniqueUsers.length} usuarios únicos en los archivos US.`,
+      title: 'Análisis de usuarios y rankings completado',
+      description: `Se encontraron ${finalUsers.length} usuarios únicos y se generaron los rankings.`,
     });
     setIsProcessing(false);
   };
@@ -117,22 +174,84 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
     <Card className="shadow-lg mt-8">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users /> Análisis de Usuarios (US)
+          <Users /> Estadísticas de Uso y Rankings
         </CardTitle>
         <CardDescription>
-          Procese los archivos de usuarios y visualice la información detallada, incluyendo la edad calculada y el grupo etario.
+          Procese los archivos para ver un análisis detallado del uso por paciente y los rankings de actividades y usuarios más frecuentes.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex justify-center py-4">
           <Button onClick={handleProcessUsers} disabled={isProcessing} size="lg">
             <Search className="mr-2" />
-            Procesar Archivos de Usuarios
+            Generar Estadísticas
           </Button>
         </div>
 
         {users.length > 0 && (
-          <div className="space-y-4">
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
+             <Card>
+                <CardHeader>
+                    <CardTitle className='flex items-center gap-2'><TrendingUp /> Ranking de Actividades</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-96">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>CUPS</TableHead>
+                                    <TableHead>Descripción</TableHead>
+                                    <TableHead className='text-right'>Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {activityRanking.map(item => (
+                                    <TableRow key={item.cups}>
+                                        <TableCell className='font-mono'>{item.cups}</TableCell>
+                                        <TableCell>{item.description}</TableCell>
+                                        <TableCell className='text-right font-bold'>{item.count}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </CardContent>
+             </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle className='flex items-center gap-2'><Award /> Ranking de Usuarios</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-96">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Documento</TableHead>
+                                    <TableHead>Nombre</TableHead>
+                                    <TableHead className='text-right'>Nº Actividades</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {userRanking.map(item => (
+                                    <TableRow key={item.user.numDoc}>
+                                        <TableCell>{item.user.numDoc}</TableCell>
+                                        <TableCell>{item.user.nombreCompleto}</TableCell>
+                                        <TableCell className='text-right font-bold'>{item.count}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </CardContent>
+             </Card>
+          </div>
+        )}
+
+        {users.length > 0 && (
+          <div className="space-y-4 pt-8">
+            <CardHeader className='p-0 mb-4'>
+                <CardTitle>Detalle de Actividades por Usuario</CardTitle>
+            </CardHeader>
             <div className='flex items-center gap-4'>
                 <p className='text-sm font-medium'>Filtrar por nombre o documento:</p>
                 <Input 
@@ -143,35 +262,49 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
                 />
             </div>
             <ScrollArea className="whitespace-nowrap rounded-md border">
-              <div className="max-h-96">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-muted">
-                    <TableRow>
-                      <TableHead>Tipo Doc</TableHead>
-                      <TableHead>Número Documento</TableHead>
-                      <TableHead>Nombre Completo</TableHead>
-                      <TableHead>Edad</TableHead>
-                      <TableHead>Grupo Etario</TableHead>
-                      <TableHead>Sexo</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Municipio</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user, index) => (
-                      <TableRow key={`${user.numDoc}-${index}`}>
-                        <TableCell>{user.tipoDoc}</TableCell>
-                        <TableCell className="font-medium">{user.numDoc}</TableCell>
-                        <TableCell>{user.nombreCompleto}</TableCell>
-                        <TableCell className="text-center font-mono text-sm">{user.edadFormateada}</TableCell>
-                        <TableCell>{user.grupoEtario}</TableCell>
-                        <TableCell className="text-center">{user.sexo}</TableCell>
-                        <TableCell>{user.departamento}</TableCell>
-                        <TableCell>{user.municipio}</TableCell>
-                      </TableRow>
+              <div className="max-h-[500px]">
+                 <Accordion type="single" collapsible className="w-full">
+                    {filteredUsers.map(user => (
+                        <AccordionItem value={user.numDoc} key={user.numDoc}>
+                            <AccordionTrigger className='px-4 hover:no-underline hover:bg-muted/50'>
+                                <div className='flex justify-between w-full items-center'>
+                                   <div>
+                                     <p className='font-semibold'>{user.nombreCompleto}</p>
+                                     <p className='text-sm text-muted-foreground'>{user.tipoDoc} {user.numDoc}</p>
+                                   </div>
+                                   <div className='flex gap-4 items-center mr-8'>
+                                     <Badge variant='outline'>{user.grupoEtario}</Badge>
+                                     <Badge variant='secondary'>{user.activities.length} actividade(s)</Badge>
+                                   </div>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className='p-4 bg-secondary/30'>
+                               {user.activities.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Segmento</TableHead>
+                                            <TableHead>CUPS</TableHead>
+                                            <TableHead>Descripción</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {user.activities.map((act, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell><Badge>{act.segment}</Badge></TableCell>
+                                                <TableCell className='font-mono'>{act.cups}</TableCell>
+                                                <TableCell>{act.description}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                               ) : (
+                                <p className='text-sm text-muted-foreground text-center py-4'>Este usuario no tiene actividades registradas en los archivos.</p>
+                               )}
+                            </AccordionContent>
+                        </AccordionItem>
                     ))}
-                  </TableBody>
-                </Table>
+                 </Accordion>
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
@@ -180,8 +313,8 @@ export default function UserAnalysis({ ripsFileContents }: UserAnalysisProps) {
         {users.length === 0 && !isProcessing && (
             <div className="text-center text-muted-foreground p-8 flex flex-col items-center gap-2">
               <AlertCircle className="w-8 h-8" />
-              <p>Presione el botón "Procesar" para cargar los datos de los usuarios.</p>
-              <p className="text-xs">(Asegúrese de haber cargado archivos RIPS que contengan el segmento 'US').</p>
+              <p>Presione el botón "Generar Estadísticas" para procesar los datos.</p>
+              <p className="text-xs">(Asegúrese de haber cargado archivos RIPS y un archivo de mapeo CUPS).</p>
             </div>
         )}
       </CardContent>

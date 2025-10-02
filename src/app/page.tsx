@@ -4,7 +4,7 @@ import { useState } from 'react';
 import RipsProcessor from '@/components/rips/RipsProcessor';
 import DetailedReports from '@/components/rips/DetailedReports';
 import UserAnalysis from '@/components/rips/UserAnalysis';
-import { BarChartBig, LayoutGrid, FileSearch, Users } from 'lucide-react';
+import { BarChartBig, LayoutGrid, FileSearch, Users, Star } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GlobalAfSummary, ValidationResult, CupsDataRow, CoincidenceReport } from '@/lib/types';
 
@@ -38,7 +38,7 @@ export default function Home() {
             <FileSearch className="mr-2" /> Reportes Detallados
           </TabsTrigger>
           <TabsTrigger value="users">
-            <Users className="mr-2" /> Análisis de Usuarios
+            <Star className="mr-2" /> Estadísticas y Rankings
             </TabsTrigger>
         </TabsList>
         <TabsContent value="validator" className="mt-6">
@@ -62,7 +62,7 @@ export default function Home() {
           />
         </TabsContent>
         <TabsContent value="users" className="mt-6">
-          <UserAnalysis ripsFileContents={fileContents} />
+          <UserAnalysis ripsFileContents={fileContents} cupsData={cupsData} />
         </TabsContent>
       </Tabs>
 
