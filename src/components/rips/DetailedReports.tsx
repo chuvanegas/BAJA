@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download, Star } from "lucide-react";
+import { FileSearch, Upload, File, X, Cog, CheckCircle, Search, Download, Star, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -64,6 +64,10 @@ export default function DetailedReports({
     toast({
         title: "Archivo removido",
     });
+  }
+
+  const handleClean = () => {
+    handleRemoveFile();
   }
 
   const handleProcessFile = () => {
@@ -251,10 +255,16 @@ export default function DetailedReports({
             className="hidden"
             accept=".txt,.csv,.xml,.xlsx"
           />
-          <Button onClick={handleButtonClick} disabled={!!cupsFile}>
-            <Upload className="mr-2" />
-            Cargar Mapeo
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleButtonClick} disabled={!!cupsFile}>
+              <Upload className="mr-2" />
+              Cargar Mapeo
+            </Button>
+            <Button variant="ghost" onClick={handleClean} disabled={!cupsFile && !coincidenceReport}>
+              <Trash2 className="mr-2" />
+              Limpiar
+            </Button>
+          </div>
         </div>
         
         {cupsFile && (
@@ -263,9 +273,6 @@ export default function DetailedReports({
                     <File className="text-primary"/>
                     <span className="text-sm font-medium">{cupsFile.name}</span>
                     <Badge variant="secondary">{Math.round(cupsFile.size / 1024)} KB</Badge>
-                    <Button variant="ghost" size="icon" onClick={handleRemoveFile}>
-                        <X className="w-4 h-4" />
-                    </Button>
                 </div>
                 <Button onClick={handleProcessFile} disabled={isProcessing}>
                     {isProcessing ? <Cog className="animate-spin" /> : <Cog />}
@@ -389,3 +396,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
