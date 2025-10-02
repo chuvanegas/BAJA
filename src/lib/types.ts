@@ -57,3 +57,22 @@ export type CoincidenceReport = {
     prestadores: GlobalAfSummary;
     data: Coincidence[];
 }
+
+export type UserData = {
+  tipoDoc: string;
+  numDoc: string;
+  codigoHabilitacion: string;
+  tipoUsuario: string;
+  primerApellido: string;
+  segundoApellido: string;
+  primerNombre: string;
+  segundoNombre: string;
+  edad: number;
+  unidadMedidaEdad: string;
+  sexo: string;
+  departamento: string;
+  municipio: string;
+  zona: string;
+  edadFormateada: string;
+  nombreCompleto: string;
+};

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import RipsProcessor from '@/components/rips/RipsProcessor';
 import DetailedReports from '@/components/rips/DetailedReports';
-import { BarChartBig, LayoutGrid, FileSearch } from 'lucide-react';
+import UserAnalysis from '@/components/rips/UserAnalysis';
+import { BarChartBig, LayoutGrid, FileSearch, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { GlobalAfSummary, ValidationResult, CupsDataRow, CoincidenceReport } from '@/lib/types';
 
@@ -29,12 +30,15 @@ export default function Home() {
       </header>
       
       <Tabs defaultValue="validator" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="validator">
             <LayoutGrid className="mr-2" /> Validador RIPS
           </TabsTrigger>
           <TabsTrigger value="reports">
             <FileSearch className="mr-2" /> Reportes Detallados
+          </TabsTrigger>
+          <TabsTrigger value="users">
+            <Users className="mr-2" /> Análisis de Usuarios
             </TabsTrigger>
         </TabsList>
         <TabsContent value="validator" className="mt-6">
@@ -56,6 +60,9 @@ export default function Home() {
             coincidenceReport={coincidenceReport}
             setCoincidenceReport={setCoincidenceReport}
           />
+        </TabsContent>
+        <TabsContent value="users" className="mt-6">
+          <UserAnalysis ripsFileContents={fileContents} />
         </TabsContent>
       </Tabs>
 
