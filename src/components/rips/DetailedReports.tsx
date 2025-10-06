@@ -110,7 +110,7 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, {header: 1}); // header: 1 to get array of arrays
+                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet);
                 setData(jsonData);
                 resolve();
             } catch (error) {
@@ -239,82 +239,56 @@ export default function DetailedReports({
     // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
-    // Create maps for faster lookups
-    const asisteMapByNit = new Map<string, GenericRow>();
-    if (asisteData.length > 0) {
-        const asisteHeaders = asisteData[0];
-        const nitIndex = asisteHeaders.indexOf('ID Nit');
-        if(nitIndex !== -1) {
-          for(let i = 1; i < asisteData.length; i++) {
-              const row = asisteData[i];
-              const nit = row[nitIndex]?.toString();
-              if (nit) asisteMapByNit.set(nit, row);
-          }
-        }
-    }
-
+    // Create maps for faster lookups from contract number
     const asisteMapByContrato = new Map<string, GenericRow>();
-     if (asisteData.length > 0) {
-        const headers = asisteData[0];
-        const contratoIndex = headers.indexOf('Número de Contrato');
-        if(contratoIndex !== -1) {
-          for(let i = 1; i < asisteData.length; i++) {
-              const row = asisteData[i];
-              const contrato = row[contratoIndex]?.toString();
-              if(contrato) asisteMapByContrato.set(contrato, row);
-          }
+    if (asisteData.length > 0) {
+        for (const row of asisteData) {
+            const contrato = row['Número de Contrato']?.toString();
+            if (contrato) asisteMapByContrato.set(contrato, row);
         }
     }
     
     const especialidadesMapByContrato = new Map<string, GenericRow>();
     if (especialidadesData.length > 0) {
-        const headers = especialidadesData[0];
-        const contratoIndex = headers.indexOf('Número de Contrato');
-        if(contratoIndex !== -1) {
-           for(let i = 1; i < especialidadesData.length; i++) {
-              const row = especialidadesData[i];
-              const contrato = row[contratoIndex]?.toString();
-              if(contrato) especialidadesMapByContrato.set(contrato, row);
-          }
+        for (const row of especialidadesData) {
+            const contrato = row['Número de Contrato']?.toString();
+            if(contrato) especialidadesMapByContrato.set(contrato, row);
         }
     }
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
-        
-        // Enrich with location data from Asiste-EspeB using NIT
-        const asisteRowByNit = asisteMapByNit.get(prestador.NI);
-        if (asisteRowByNit && asisteData[0]) {
-            const headers = asisteData[0];
-            const deptoIndex = headers.indexOf('Departamento');
-            const municipioIndex = headers.indexOf('Municipio');
-            if(deptoIndex !== -1) prestador.departamento = asisteRowByNit[deptoIndex];
-            if(municipioIndex !== -1) prestador.municipio = asisteRowByNit[municipioIndex];
-        }
-
-        // Enrich with contract value based on regimen
         const regimen = prestador.regimen.toUpperCase();
         let foundValue: number | undefined = undefined;
+        let foundLocation = false;
 
         // Search in Asiste-EspeB by contract number
-        const asisteRowByContrato = asisteMapByContrato.get(prestador.contrato);
-        if (asisteRowByContrato && asisteData[0]) {
-            const headers = asisteData[0];
-            const colIndex = regimen === 'SUBSIDIADO' ? headers.indexOf('Valor Subsidiado') : headers.indexOf('Valor Contributivo'); // Assuming column names J and K are these
-            if (colIndex !== -1 && typeof asisteRowByContrato[colIndex] === 'number') {
-                foundValue = asisteRowByContrato[colIndex];
+        const asisteRow = asisteMapByContrato.get(prestador.contrato);
+        if (asisteRow) {
+            prestador.departamento = asisteRow['Departamento'];
+            prestador.municipio = asisteRow['Municipio'];
+            foundLocation = true;
+
+            const colName = regimen === 'SUBSIDIADO' ? 'Valor Subsidiado' : 'Valor Contributivo';
+            if (asisteRow[colName] && typeof asisteRow[colName] === 'number') {
+                foundValue = asisteRow[colName];
             }
         }
 
         // If not found, search in Especialidades by contract number
-        if (foundValue === undefined) {
+        if (foundValue === undefined || !foundLocation) {
             const especialidadesRow = especialidadesMapByContrato.get(prestador.contrato);
-            if (especialidadesRow && especialidadesData[0]) {
-                 const headers = especialidadesData[0];
-                 const colIndex = regimen === 'SUBSIDIADO' ? headers.indexOf('Valor Subsidiado') : headers.indexOf('Valor Contributivo'); // Assuming column names K and L are these
-                 if (colIndex !== -1 && typeof especialidadesRow[colIndex] === 'number') {
-                    foundValue = especialidadesRow[colIndex];
-                }
+            if (especialidadesRow) {
+                 if (!foundLocation) {
+                    prestador.departamento = especialidadesRow['Departamento'];
+                    prestador.municipio = especialidadesRow['Municipio'];
+                 }
+                 if(foundValue === undefined) {
+                    const colName = regimen === 'SUBSIDIADO' ? 'Valor Subsidiado' : 'Valor Contributivo';
+                     if (especialidadesRow[colName] && typeof especialidadesRow[colName] === 'number') {
+                        foundValue = especialidadesRow[colName];
+                    }
+                 }
             }
         }
         
@@ -579,5 +553,7 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
 
     
