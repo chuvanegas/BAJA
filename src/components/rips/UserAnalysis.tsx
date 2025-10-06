@@ -109,7 +109,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     }
 
     const activityCounts: Record<string, number> = {};
-    const userActivityCounts: Record<string, { user: UserData; count: number }> = {};
+    const userActivityCounts = new Map<string, number>();
     
     const cupsMap = new Map<string, string>();
     cupsData.forEach(c => {
@@ -135,10 +135,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                         const activity: UserActivity = { segment: seg, cups: cupsCode, description: cupsMap.get(cupsCode) || 'Descripción no encontrada' };
                         user.activities.push(activity);
                         
-                        if (!userActivityCounts[userId]) {
-                           userActivityCounts[userId] = { user, count: 0 };
-                        }
-                        userActivityCounts[userId].count += 1;
+                        userActivityCounts.set(userId, (userActivityCounts.get(userId) || 0) + 1);
                     }
                     activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
                 }
@@ -156,8 +153,13 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     })).sort((a,b) => b.count - a.count);
     setActivityRanking(rankedActivities);
 
-    const rankedUsers = Object.values(userActivityCounts)
-      .sort((a,b) => b.count - a.count);
+    const rankedUsers: UserRanking[] = Array.from(userActivityCounts.entries())
+      .map(([userId, count]) => ({
+        user: usersMap.get(userId)!,
+        count,
+      }))
+      .filter(item => item.user)
+      .sort((a, b) => b.count - a.count);
     setUserRanking(rankedUsers);
 
     toast({
