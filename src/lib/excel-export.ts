@@ -10,11 +10,11 @@ export const exportToExcel = (globalAF: GlobalAfSummary) => {
 
   // Hoja Consolidado
   const consolidadoData = [
-    ["Nombre del prestador", "NI", "Contrato", "Tipo de servicio", "Régimen", "Valor LMA Total"]
+    ["Nombre del prestador", "NI", "Contrato", "Tipo de servicio", "Régimen", "Valor LMA Total", "Departamento", "Municipio"]
   ];
   let totalGeneral = 0;
   Object.values(globalAF).forEach(af => {
-    consolidadoData.push([af.nombrePrestador, af.NI, af.contrato, af.tipoServicio, af.regimen, af.valorTotal]);
+    consolidadoData.push([af.nombrePrestador, af.NI, af.contrato, af.tipoServicio, af.regimen, af.valorTotal, af.departamento || '', af.municipio || '']);
     totalGeneral += af.valorTotal;
   });
   consolidadoData.push([]);
@@ -22,7 +22,7 @@ export const exportToExcel = (globalAF: GlobalAfSummary) => {
 
   const wsCons = XLSX.utils.aoa_to_sheet(consolidadoData);
   // Formatting currency columns
-  wsCons['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 20 }];
+  wsCons['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }];
   Object.keys(wsCons).forEach(key => {
     if(key.startsWith('F')) {
       const cell = wsCons[key];
@@ -43,6 +43,8 @@ export const exportToExcel = (globalAF: GlobalAfSummary) => {
       ["Número de contrato", af.contrato],
       ["Tipo de servicio", af.tipoServicio],
       ["Régimen", af.regimen],
+      ["Departamento", af.departamento || ''],
+      ["Municipio", af.municipio || ''],
       [],
       ["Periodo", "Valor LMA", "Archivo origen"]
     ];
@@ -86,7 +88,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total];
     });
     
-    let wsData: (string | number)[][] = [
+    let wsData: (string | number | undefined)[][] = [
       ["Reporte de Coincidencias CUPS"],
       [],
     ];
@@ -95,6 +97,8 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
       wsData.push(["Prestador:", prestador.nombrePrestador]);
       wsData.push(["Nit:", prestador.NI]);
       wsData.push(["Contrato:", prestador.contrato]);
+      wsData.push(["Departamento:", prestador.departamento]);
+      wsData.push(["Municipio:", prestador.municipio]);
       wsData.push(["Valor Total:", prestador.valorTotal]);
       wsData.push([]);
     });

@@ -13,6 +13,8 @@ export type AfProviderData = {
   regimen: string;
   detalles: AfDetail[];
   valorTotal: number;
+  departamento?: string;
+  municipio?: string;
 };
 
 export type GlobalAfSummary = Record<string, AfProviderData>;
@@ -96,3 +98,5 @@ export type UserRanking = {
   user: UserData;
   count: number;
 };
+
+export type GenericRow = Record<string, any>;

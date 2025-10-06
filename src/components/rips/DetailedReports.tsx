@@ -12,7 +12,7 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, AfProviderData } from "@/lib/types";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, AfProviderData } from "@/lib/types";
 import { Separator } from "../ui/separator";
 import ContractAnalysis from "./ContractAnalysis";
 
@@ -37,6 +37,11 @@ export default function DetailedReports({
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const [asisteFile, setAsisteFile] = useState<File | null>(null);
+  const [especialidadesFile, setEspecialidadesFile] = useState<File | null>(null);
+  const [asisteData, setAsisteData] = useState<GenericRow[]>([]);
+  const [especialidadesData, setEspecialidadesData] = useState<GenericRow[]>([]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -164,6 +169,28 @@ export default function DetailedReports({
         return;
     }
 
+    // Enrich globalAf with Departamento and Municipio from asisteData
+    const enrichedGlobalAf: GlobalAfSummary = { ...globalAf };
+    if (asisteData.length > 0) {
+        const asisteMap = new Map<string, GenericRow>();
+        asisteData.forEach(row => {
+            const nit = row['ID Nit'];
+            if (nit) {
+                asisteMap.set(nit.toString(), row);
+            }
+        });
+
+        for (const key in enrichedGlobalAf) {
+            const prestador = enrichedGlobalAf[key];
+            const asisteRow = asisteMap.get(prestador.NI);
+            if (asisteRow) {
+                prestador.departamento = asisteRow['Departamento'];
+                prestador.municipio = asisteRow['Municipio'];
+            }
+        }
+    }
+
+
     const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
     let globalCoincidences: Coincidence[] = [];
 
@@ -222,7 +249,7 @@ export default function DetailedReports({
         globalCoincidences.push(coincidence);
     });
 
-    setCoincidenceReport({ prestadores: globalAf, data: globalCoincidences });
+    setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences });
      toast({ title: "Reporte de coincidencias generado." });
   }
 
@@ -326,6 +353,8 @@ export default function DetailedReports({
                                     </AccordionTrigger>
                                     <AccordionContent>
                                       <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
+                                        {prestador.departamento && <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento}</span></p>}
+                                        {prestador.municipio && <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio}</span></p>}
                                         <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
                                         <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                         <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
@@ -394,7 +423,14 @@ export default function DetailedReports({
               )}
               
               <Separator />
-              <ContractAnalysis />
+              <ContractAnalysis 
+                asisteFile={asisteFile}
+                setAsisteFile={setAsisteFile}
+                setAsisteData={setAsisteData}
+                especialidadesFile={especialidadesFile}
+                setEspecialidadesFile={setEspecialidadesFile}
+                setEspecialidadesData={setEspecialidadesData}
+              />
 
             </AccordionContent>
           </AccordionItem>

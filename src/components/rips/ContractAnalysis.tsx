@@ -1,55 +1,36 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useRef } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { File, Upload, Cog, Trash2 } from "lucide-react";
+import { File, Upload, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "../ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea, ScrollBar } from "../ui/scroll-area";
+import type { GenericRow } from "@/lib/types";
 
-type GenericRow = Record<string, any>;
+interface ContractAnalysisProps {
+  asisteFile: File | null;
+  setAsisteFile: (file: File | null) => void;
+  setAsisteData: (data: GenericRow[]) => void;
+  especialidadesFile: File | null;
+  setEspecialidadesFile: (file: File | null) => void;
+  setEspecialidadesData: (data: GenericRow[]) => void;
+}
 
-export default function ContractAnalysis() {
-  const [asisteFile, setAsisteFile] = useState<File | null>(null);
-  const [especialidadesFile, setEspecialidadesFile] = useState<File | null>(null);
-  
-  const [asisteData, setAsisteData] = useState<GenericRow[]>([]);
-  const [especialidadesData, setEspecialidadesData] = useState<GenericRow[]>([]);
-  
-  const [isProcessingAsiste, setIsProcessingAsiste] = useState(false);
-  const [isProcessingEspecialidades, setIsProcessingEspecialidades] = useState(false);
-  
+export default function ContractAnalysis({
+  asisteFile,
+  setAsisteFile,
+  setAsisteData,
+  especialidadesFile,
+  setEspecialidadesFile,
+  setEspecialidadesData,
+}: ContractAnalysisProps) {
   const asisteInputRef = useRef<HTMLInputElement>(null);
   const especialidadesInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const handleFileChange = (type: 'asiste' | 'especialidades') => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (type === 'asiste') {
-        setAsisteFile(file);
-        setAsisteData([]);
-      } else {
-        setEspecialidadesFile(file);
-        setEspecialidadesData([]);
-      }
-      toast({
-        title: "Archivo cargado",
-        description: `Se ha seleccionado el archivo: ${file.name}`,
-      });
-    }
-  };
-
-  const handleProcessFile = (type: 'asiste' | 'especialidades') => () => {
-    const file = type === 'asiste' ? asisteFile : especialidadesFile;
-    if (!file) return;
-
-    if (type === 'asiste') setIsProcessingAsiste(true);
-    else setIsProcessingEspecialidades(true);
-    
+  const processFile = (file: File, setData: (data: GenericRow[]) => void) => {
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -60,32 +41,42 @@ export default function ContractAnalysis() {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet);
 
-        if (type === 'asiste') {
-          setAsisteData(jsonData);
-        } else {
-          setEspecialidadesData(jsonData);
-        }
+        setData(jsonData);
         
         toast({
-          title: "Procesamiento completo",
-          description: `Se encontraron y cargaron ${jsonData.length} registros de ${file.name}.`,
+          title: "Archivo procesado en segundo plano",
+          description: `Se cargaron ${jsonData.length} registros de ${file.name}.`,
         });
       } catch (error) {
         console.error("Error processing file:", error);
         toast({ title: "Error al procesar", variant: "destructive" });
-      } finally {
-        if (type === 'asiste') setIsProcessingAsiste(false);
-        else setIsProcessingEspecialidades(false);
       }
     };
 
     reader.onerror = () => {
         toast({ title: "Error de lectura", variant: "destructive" });
-        if (type === 'asiste') setIsProcessingAsiste(false);
-        else setIsProcessingEspecialidades(false);
     }
     
     reader.readAsBinaryString(file);
+  }
+
+  const handleFileChange = (type: 'asiste' | 'especialidades') => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (type === 'asiste') {
+        setAsisteFile(file);
+        setAsisteData([]);
+        processFile(file, setAsisteData);
+      } else {
+        setEspecialidadesFile(file);
+        setEspecialidadesData([]);
+        processFile(file, setEspecialidadesData);
+      }
+      toast({
+        title: "Archivo seleccionado",
+        description: `Se ha seleccionado el archivo: ${file.name}`,
+      });
+    }
   };
   
   const handleClean = (type: 'asiste' | 'especialidades') => () => {
@@ -98,40 +89,16 @@ export default function ContractAnalysis() {
           setEspecialidadesData([]);
           if(especialidadesInputRef.current) especialidadesInputRef.current.value = "";
       }
-      toast({ title: "Archivos y datos limpiados." });
-  }
-
-  const renderTable = (data: GenericRow[]) => {
-      if (data.length === 0) return null;
-      const headers = Object.keys(data[0]);
-      return (
-        <ScrollArea className="whitespace-nowrap rounded-md border max-h-96">
-            <Table>
-                <TableHeader className="sticky top-0 bg-muted">
-                    <TableRow>
-                        {headers.map(h => <TableHead key={h}>{h}</TableHead>)}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {data.map((row, i) => (
-                        <TableRow key={i}>
-                            {headers.map(h => <TableCell key={h}>{row[h]}</TableCell>)}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-            <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      );
+      toast({ title: "Archivo y datos limpiados." });
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
         {/* Asiste-EspeB Uploader */}
         <Card>
             <CardHeader>
                 <CardTitle>Plantilla Asiste-EspeB</CardTitle>
-                <CardDescription>Cargue el archivo de Excel para el análisis de contratos Asistenciales y de Especialidades Básicas.</CardDescription>
+                <CardDescription>Cargue el archivo de Excel para enriquecer el reporte con datos de ubicación (Departamento, Municipio).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
@@ -152,15 +119,6 @@ export default function ContractAnalysis() {
                         </div>
                     )}
                 </div>
-                 {asisteFile && (
-                     <div className="flex justify-end">
-                        <Button onClick={handleProcessFile('asiste')} disabled={isProcessingAsiste}>
-                            {isProcessingAsiste ? <Cog className="animate-spin" /> : <Cog />}
-                            Procesar Plantilla
-                        </Button>
-                    </div>
-                 )}
-                 {asisteData.length > 0 && renderTable(asisteData)}
             </CardContent>
         </Card>
 
@@ -168,7 +126,7 @@ export default function ContractAnalysis() {
         <Card>
             <CardHeader>
                 <CardTitle>Plantilla Especialidades</CardTitle>
-                <CardDescription>Cargue el archivo de Excel para el análisis de contratos de Especialidades.</CardDescription>
+                <CardDescription>Cargue el archivo de Excel para cruzar por número de contrato.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
@@ -189,15 +147,6 @@ export default function ContractAnalysis() {
                         </div>
                     )}
                 </div>
-                {especialidadesFile && (
-                    <div className="flex justify-end">
-                        <Button onClick={handleProcessFile('especialidades')} disabled={isProcessingEspecialidades}>
-                            {isProcessingEspecialidades ? <Cog className="animate-spin" /> : <Cog />}
-                            Procesar Plantilla
-                        </Button>
-                    </div>
-                )}
-                {especialidadesData.length > 0 && renderTable(especialidadesData)}
             </CardContent>
         </Card>
     </div>
