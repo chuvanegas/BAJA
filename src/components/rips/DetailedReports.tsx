@@ -154,10 +154,10 @@ export default function DetailedReports({
     const fileProcessingPromises: Promise<any>[] = [];
 
     // Process enrichment files
-    if (asisteFile) {
+    if (asisteFile && asisteData.length === 0) {
         fileProcessingPromises.push(processEnrichmentFile(asisteFile, setAsisteData));
     }
-    if (especialidadesFile) {
+    if (especialidadesFile && especialidadesData.length === 0) {
         fileProcessingPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
     }
     
@@ -348,7 +348,7 @@ export default function DetailedReports({
                     <CardTitle className="text-base">Plantillas de Enriquecimiento (Opcional)</CardTitle>
                     <CardDescription className="text-sm">Cargue estos archivos para añadir datos de ubicación y contratos al reporte.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pt-6">
                     <Uploader
                         title="Plantilla Asiste-EspeB"
                         description="Para datos de ubicación (Depto/Municipio)."
@@ -420,7 +420,7 @@ export default function DetailedReports({
                         <CardTitle>Reporte de Coincidencias CUPS</CardTitle>
                         <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados, enriquecido con datos de plantillas.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3 pt-6">
                         
                         <Accordion type="single" collapsible className="w-full" defaultValue='item-0'>
                           {Object.values(coincidenceReport.prestadores).map((prestador, index) => (
@@ -512,3 +512,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
