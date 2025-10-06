@@ -12,9 +12,7 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, AfProviderData } from "@/lib/types";
-import { Separator } from "../ui/separator";
-import ContractAnalysis from "./ContractAnalysis";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow } from "@/lib/types";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
@@ -24,6 +22,46 @@ interface DetailedReportsProps {
   coincidenceReport: CoincidenceReport | null;
   setCoincidenceReport: (report: CoincidenceReport | null) => void;
 }
+
+const Uploader = ({
+    title,
+    description,
+    file,
+    inputRef,
+    onFileChange,
+    onClean
+}: {
+    title: string;
+    description: string;
+    file: File | null;
+    inputRef: React.RefObject<HTMLInputElement>;
+    onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onClean: () => void;
+}) => (
+     <div className="p-4 border rounded-lg space-y-3 bg-card/30">
+        <h4 className="font-semibold">{title}</h4>
+        <p className="text-sm text-muted-foreground">{description}</p>
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <input type="file" ref={inputRef} onChange={onFileChange} className="hidden" accept=".xlsx"/>
+          <div className="flex-1">
+              <Button onClick={() => inputRef.current?.click()} variant="outline" size="sm" disabled={!!file}>
+                  <Upload className="mr-2" /> Cargar
+              </Button>
+          </div>
+          {file && (
+              <div className="flex items-center gap-2 text-sm">
+                   <File className="text-primary w-4 h-4"/>
+                  <span className="font-medium truncate max-w-xs">{file.name}</span>
+                  <Badge variant="secondary">{Math.round(file.size / 1024)} KB</Badge>
+                  <Button variant="ghost" size="icon" onClick={onClean} className="h-6 w-6">
+                      <Trash2 className="w-4 h-4"/>
+                  </Button>
+              </div>
+          )}
+        </div>
+     </div>
+);
+
 
 export default function DetailedReports({ 
   cupsData, 
@@ -35,127 +73,152 @@ export default function DetailedReports({
 }: DetailedReportsProps) {
   const [cupsFile, setCupsFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const [asisteFile, setAsisteFile] = useState<File | null>(null);
   const [especialidadesFile, setEspecialidadesFile] = useState<File | null>(null);
   const [asisteData, setAsisteData] = useState<GenericRow[]>([]);
   const [especialidadesData, setEspecialidadesData] = useState<GenericRow[]>([]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setCupsFile(file);
-      // Reset dependent state when a new file is chosen
-      setCupsData([]);
-      setCoincidenceReport(null);
-      toast({
-        title: "Archivo cargado",
-        description: `Se ha seleccionado el archivo: ${file.name}`,
-      });
-    }
-  };
-
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
   
-  const handleRemoveFile = () => {
-    setCupsFile(null);
-    setCupsData([]);
-    setCoincidenceReport(null);
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-    }
-  }
+  const cupsInputRef = useRef<HTMLInputElement>(null);
+  const asisteInputRef = useRef<HTMLInputElement>(null);
+  const especialidadesInputRef = useRef<HTMLInputElement>(null);
 
-  const handleClean = () => {
-    handleRemoveFile();
-    setAsisteFile(null);
-    setEspecialidadesFile(null);
-    setAsisteData([]);
-    setEspecialidadesData([]);
-    toast({
-        title: "Archivos y datos limpiados",
+
+  const handleGenericFileChange = (
+      event: React.ChangeEvent<HTMLInputElement>,
+      setFile: (file: File | null) => void,
+      setData: (data: GenericRow[]) => void
+    ) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setFile(file);
+            setData([]); // Reset previous data
+            toast({
+              title: "Archivo seleccionado",
+              description: `Se ha seleccionado: ${file.name}. Se procesará al generar el reporte.`,
+            });
+        }
+    };
+    
+  const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
+    return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet);
+                setData(jsonData);
+                resolve();
+            } catch (error) {
+                console.error("Error processing enrichment file:", error);
+                toast({ title: `Error al procesar ${file.name}`, variant: "destructive" });
+                reject(error);
+            }
+        };
+        reader.onerror = (error) => {
+            toast({ title: `Error de lectura en ${file.name}`, variant: "destructive" });
+            reject(error);
+        }
+        reader.readAsBinaryString(file);
     });
   }
 
-  const handleProcessFile = () => {
-    if (!cupsFile) return;
+  const handleClean = () => {
+    setCupsFile(null);
+    setCupsData([]);
+    setCoincidenceReport(null);
+    setAsisteFile(null);
+    setAsisteData([]);
+    setEspecialidadesFile(null);
+    setEspecialidadesData([]);
+
+    if(cupsInputRef.current) cupsInputRef.current.value = "";
+    if(asisteInputRef.current) asisteInputRef.current.value = "";
+    if(especialidadesInputRef.current) especialidadesInputRef.current.value = "";
+
+    toast({ title: "Archivos y datos limpiados" });
+  }
+
+  const handleProcessFiles = async () => {
+    if (!cupsFile) {
+        toast({ title: "Falta archivo de mapeo", description: "Por favor, cargue el archivo de mapeo CUPS.", variant: "destructive" });
+        return;
+    }
 
     setIsProcessing(true);
-    const reader = new FileReader();
 
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        let jsonData: CupsDataRow[] = [];
-        
-        if (cupsFile.name.endsWith('.xlsx') || cupsFile.name.endsWith('.csv') || cupsFile.name.endsWith('.txt')) {
-          const workbook = cupsFile.name.endsWith('.xlsx') ? XLSX.read(data, { type: 'binary' }) : XLSX.read(data, { type: 'string' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
-        } else if (cupsFile.name.endsWith('.xml')) {
-            const text = data as string;
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, "application/xml");
-            
-            const rows = Array.from(xmlDoc.getElementsByTagName('row'));
-            if (rows.length > 0) {
-              const headers = Array.from(rows[0].children).map(child => child.tagName);
-              jsonData = rows.map(row => {
-                const rowData: any = {};
-                Array.from(row.children).forEach((child, index) => {
-                  rowData[headers[index]] = child.textContent;
-                });
-                return rowData as CupsDataRow;
-              });
-            } else {
-               toast({
-                title: "Formato XML no estándar",
-                description: "No se pudieron encontrar filas ('<row>') en el XML.",
-                variant: "destructive"
-              });
-            }
-        } else {
-            toast({
-                title: "Formato no soportado",
-                description: "Por favor, cargue un archivo .xlsx, .csv, .txt o .xml.",
-                variant: "destructive"
-            });
-            setIsProcessing(false);
-            return;
-        }
+    const fileProcessingPromises: Promise<any>[] = [];
 
-        setCupsData(jsonData);
-        toast({
-          title: "Procesamiento completo",
-          description: `Se encontraron y cargaron ${jsonData.length} registros.`,
-        });
-
-      } catch (error) {
-        console.error("Error processing file:", error);
-        toast({
-          title: "Error al procesar",
-          description: "No se pudo leer el contenido del archivo. Verifique el formato.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    reader.onerror = () => {
-        toast({ title: "Error de lectura", description: "No se pudo leer el archivo.", variant: "destructive" });
-        setIsProcessing(false);
+    // Process enrichment files
+    if (asisteFile) {
+        fileProcessingPromises.push(processEnrichmentFile(asisteFile, setAsisteData));
+    }
+    if (especialidadesFile) {
+        fileProcessingPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
     }
     
-    if (cupsFile.name.endsWith('.xlsx')) {
-        reader.readAsBinaryString(cupsFile);
-    } else {
-        reader.readAsText(cupsFile);
+    // Process main CUPS file
+    const cupsProcessingPromise = new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = e.target?.result;
+          let jsonData: CupsDataRow[] = [];
+          if (cupsFile.name.endsWith('.xlsx') || cupsFile.name.endsWith('.csv') || cupsFile.name.endsWith('.txt')) {
+            const workbook = cupsFile.name.endsWith('.xlsx') ? XLSX.read(data, { type: 'binary' }) : XLSX.read(data, { type: 'string' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
+          } else if (cupsFile.name.endsWith('.xml')) {
+              const text = data as string;
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(text, "application/xml");
+              const rows = Array.from(xmlDoc.getElementsByTagName('row'));
+              if (rows.length > 0) {
+                const headers = Array.from(rows[0].children).map(child => child.tagName);
+                jsonData = rows.map(row => {
+                  const rowData: any = {};
+                  Array.from(row.children).forEach((child, index) => { rowData[headers[index]] = child.textContent; });
+                  return rowData as CupsDataRow;
+                });
+              }
+            }
+            setCupsData(jsonData);
+            resolve();
+        } catch (error) {
+            console.error("Error processing CUPS file:", error);
+            toast({ title: "Error al procesar archivo de mapeo", variant: "destructive" });
+            reject(error);
+        }
+      };
+      reader.onerror = (error) => {
+          toast({ title: "Error de lectura en archivo de mapeo.", variant: "destructive" });
+          reject(error);
+      }
+      if (cupsFile.name.endsWith('.xlsx')) reader.readAsBinaryString(cupsFile);
+      else reader.readAsText(cupsFile);
+    });
+
+    fileProcessingPromises.push(cupsProcessingPromise);
+
+    try {
+        await Promise.all(fileProcessingPromises);
+        toast({
+          title: "Procesamiento completo",
+          description: `Se procesaron los archivos cargados. Ahora puede generar el reporte.`,
+        });
+    } catch(e) {
+        toast({
+          title: "Procesamiento fallido",
+          description: `Uno o más archivos no pudieron ser procesados.`,
+          variant: "destructive"
+        })
+    } finally {
+        setIsProcessing(false);
     }
   };
 
@@ -173,15 +236,14 @@ export default function DetailedReports({
         return;
     }
 
-    // Enrich globalAf with Departamento and Municipio from asisteData
-    const enrichedGlobalAf: GlobalAfSummary = { ...globalAf };
+    // Create a deep copy to avoid mutating the original globalAf state
+    const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
+    
     if (asisteData.length > 0) {
         const asisteMap = new Map<string, GenericRow>();
         asisteData.forEach(row => {
             const nit = row['ID Nit'];
-            if (nit) {
-                asisteMap.set(nit.toString(), row);
-            }
+            if (nit) asisteMap.set(nit.toString(), row);
         });
 
         for (const key in enrichedGlobalAf) {
@@ -203,9 +265,7 @@ export default function DetailedReports({
     for (const content of Object.values(ripsFileContents)) {
         const blocks = parseRIPS(content);
         for (const segment in blocks) {
-            if (!allRipsBlocks[segment]) {
-                allRipsBlocks[segment] = [];
-            }
+            if (!allRipsBlocks[segment]) allRipsBlocks[segment] = [];
             allRipsBlocks[segment].push(...blocks[segment]);
         }
     }
@@ -227,9 +287,7 @@ export default function DetailedReports({
         segmentsToSearch.forEach(seg => {
             const segmentLines = allRipsBlocks[seg] || [];
             let count = 0;
-            const codePosition = {
-                'AC': 6, 'AP': 7, 'AU': 6, 'AH': 8, 'AN': 6, 'AT': 6,
-            };
+            const codePosition = { 'AC': 6, 'AP': 7, 'AU': 6, 'AH': 8, 'AN': 6, 'AT': 6 };
             const pos = codePosition[seg as keyof typeof codePosition];
 
             if (pos !== undefined) {
@@ -258,82 +316,89 @@ export default function DetailedReports({
   }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   };
 
   return (
     <Card className="shadow-lg mt-8">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileSearch /> Reportes Detallados
-        </CardTitle>
-        <CardDescription>
-          Cruce datos RIPS con mapeos CUPS y analice plantillas de contratos para generar reportes enriquecidos.
-        </CardDescription>
+        <CardTitle className="flex items-center gap-2"> <FileSearch /> Reportes Detallados </CardTitle>
+        <CardDescription> Cruce datos RIPS con mapeos CUPS y plantillas de enriquecimiento para generar reportes detallados. </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
           <AccordionItem value="item-1">
-            <AccordionTrigger className="text-lg font-semibold">Generador de Reportes</AccordionTrigger>
+            <AccordionTrigger className="text-lg font-semibold">Paso 1: Carga y Procesamiento de Archivos</AccordionTrigger>
             <AccordionContent className="pt-4 space-y-6">
-              <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
-                <p className="text-sm text-muted-foreground flex-1">
-                  Cargue un archivo de mapeo de códigos CUPS para cruzarlo con los RIPS.
-                </p>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept=".txt,.csv,.xml,.xlsx"
-                />
-                <div className="flex items-center gap-2">
-                  <Button onClick={handleButtonClick} disabled={!!cupsFile}>
-                    <Upload className="mr-2" />
-                    Cargar Mapeo
-                  </Button>
-                  <Button variant="ghost" onClick={handleClean} disabled={!cupsFile && !coincidenceReport && !asisteFile && !especialidadesFile}>
-                    <Trash2 className="mr-2" />
-                    Limpiar
-                  </Button>
-                </div>
-              </div>
               
-              {cupsFile && (
-                  <div className="p-4 rounded-md bg-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                          <File className="text-primary"/>
-                          <span className="text-sm font-medium">{cupsFile.name}</span>
-                          <Badge variant="secondary">{Math.round(cupsFile.size / 1024)} KB</Badge>
-                      </div>
-                      <Button onClick={handleProcessFile} disabled={isProcessing}>
-                          {isProcessing ? <Cog className="animate-spin" /> : <Cog />}
-                          Procesar Mapeo
-                      </Button>
-                  </div>
-              )}
-
-              <ContractAnalysis 
-                asisteFile={asisteFile}
-                setAsisteFile={setAsisteFile}
-                setAsisteData={setAsisteData}
-                especialidadesFile={especialidadesFile}
-                setEspecialidadesFile={setEspecialidadesFile}
-                setEspecialidadesData={setEspecialidadesData}
+              <Uploader
+                title="Cargue Mapeo CUPS"
+                description="Archivo principal para cruzar los códigos CUPS con los RIPS."
+                file={cupsFile}
+                inputRef={cupsInputRef}
+                onFileChange={(e) => handleGenericFileChange(e, setCupsFile, () => {})}
+                onClean={() => {
+                  setCupsFile(null);
+                  if(cupsInputRef.current) cupsInputRef.current.value = "";
+                }}
               />
               
-              {cupsData.length > 0 && (
-                <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Plantillas de Enriquecimiento (Opcional)</CardTitle>
+                    <CardDescription className="text-sm">Cargue estos archivos para añadir datos de ubicación y contratos al reporte.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Uploader
+                        title="Plantilla Asiste-EspeB"
+                        description="Para datos de ubicación (Depto/Municipio)."
+                        file={asisteFile}
+                        inputRef={asisteInputRef}
+                        onFileChange={(e) => handleGenericFileChange(e, setAsisteFile, setAsisteData)}
+                        onClean={() => {
+                            setAsisteFile(null);
+                            setAsisteData([]);
+                            if(asisteInputRef.current) asisteInputRef.current.value = "";
+                        }}
+                    />
+                    <Uploader
+                        title="Plantilla Especialidades"
+                        description="Para cruzar por número de contrato."
+                        file={especialidadesFile}
+                        inputRef={especialidadesInputRef}
+                        onFileChange={(e) => handleGenericFileChange(e, setEspecialidadesFile, setEspecialidadesData)}
+                        onClean={() => {
+                            setEspecialidadesFile(null);
+                            setEspecialidadesData([]);
+                            if(especialidadesInputRef.current) especialidadesInputRef.current.value = "";
+                        }}
+                    />
+                </CardContent>
+              </Card>
+
+              <div className="flex items-center justify-center gap-4">
+                <Button onClick={handleProcessFiles} disabled={isProcessing || !cupsFile} size="lg">
+                    {isProcessing ? <Cog className="animate-spin" /> : <Cog />}
+                    Procesar Archivos Cargados
+                </Button>
+                <Button variant="outline" onClick={handleClean}> <Trash2 /> Limpiar Todo </Button>
+              </div>
+
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+        
+        {cupsData.length > 0 && (
+          <div className="space-y-4">
+            <Accordion type="single" collapsible className="w-full" defaultValue="item-2">
+              <AccordionItem value="item-2">
+                <AccordionTrigger className="text-lg font-semibold">Paso 2: Generación de Reporte</AccordionTrigger>
+                <AccordionContent className="pt-4 space-y-6">
                   <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
                       <CheckCircle className="w-6 h-6 text-green-600" />
                       <div>
-                          <p className="font-semibold text-green-700 dark:text-green-400">¡Mapeo procesado!</p>
-                          <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros. Ahora puede generar el reporte.</p>
+                          <p className="font-semibold text-green-700 dark:text-green-400">¡Archivos procesados!</p>
+                          <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros de mapeo. Ahora puede generar el reporte.</p>
                       </div>
                   </div>
                   <div className="flex justify-center py-4">
@@ -342,105 +407,105 @@ export default function DetailedReports({
                           Generar Reporte de Coincidencias
                       </Button>
                   </div>
-                </div>
-              )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        )}
               
-              {coincidenceReport && (
-                  <div className="space-y-4 pt-6">
-                      <Card>
-                          <CardHeader>
-                              <CardTitle>Reporte de Coincidencias CUPS</CardTitle>
-                              <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados.</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                              
-                              <Accordion type="single" collapsible className="w-full" defaultValue='item-0'>
-                                {Object.values(coincidenceReport.prestadores).map((prestador, index) => (
-                                  <AccordionItem value={`item-${index}`} key={prestador.NI + index}>
-                                    <AccordionTrigger>
-                                      <div className="flex items-center gap-2">
-                                        <Star className="text-amber-400" />
-                                        <span className="font-semibold">{prestador.nombrePrestador}</span>
-                                        <Badge variant="outline">NIT: {prestador.NI}</Badge>
-                                      </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                      <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
-                                        {prestador.departamento && <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento}</span></p>}
-                                        {prestador.municipio && <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio}</span></p>}
-                                        <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
-                                        <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
-                                        <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
-                                        
-                                        <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
-                                        <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
-                                          {prestador.detalles.map((d, i) => (
-                                            <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
-                                          ))}
-                                        </ul>
-                                        <p className="font-bold text-lg text-right pt-2">
-                                          Valor LMA Total: <span className="text-primary">{formatCurrency(prestador.valorTotal)}</span>
-                                        </p>
-                                      </div>
-                                    </AccordionContent>
-                                  </AccordionItem>
-                                ))}
-                              </Accordion>
-                              
-                              <ScrollArea className="whitespace-nowrap rounded-md border">
-                                  <div className="max-h-96">
-                                      <Table>
-                                          <TableHeader className="sticky top-0 bg-muted">
-                                              <TableRow>
-                                                  <TableHead className="min-w-[100px]">CUPS</TableHead>
-                                                  <TableHead className="min-w-[100px]">CUPS Vigente</TableHead>
-                                                  <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
-                                                  <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
-                                                  <TableHead className="text-center">AP</TableHead>
-                                                  <TableHead className="text-center">AC</TableHead>
-                                                  <TableHead className="text-center">AT</TableHead>
-                                                  <TableHead className="text-center">AN</TableHead>
-                                                  <TableHead className="text-center">AH</TableHead>
-                                                  <TableHead className="text-center">AU</TableHead>
-                                                  <TableHead className="text-center">US</TableHead>
-                                                  <TableHead className="text-center font-bold">Total</TableHead>
-                                              </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                              {coincidenceReport.data.map((row, index) => (
-                                                  <TableRow key={index}>
-                                                      <TableCell className="font-mono text-xs">{row.cups}</TableCell>
-                                                      <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
-                                                      <TableCell className="text-xs">{row.nombre}</TableCell>
-                                                      <TableCell className="text-xs">{row.tipoSer}</TableCell>
-                                                      {Object.values(row.coincidences).map((count, i) => (
-                                                          <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
-                                                      ))}
-                                                      <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
-                                                  </TableRow>
-                                              ))}
-                                          </TableBody>
-                                      </Table>
-                                  </div>
-                                  <ScrollBar orientation="horizontal" />
-                              </ScrollArea>
-                              <div className="flex justify-end pt-4">
-                                  <Button onClick={() => exportCoincidenceToExcel(coincidenceReport)}>
-                                      <Download className="mr-2"/>
-                                      Exportar Reporte a Excel
-                                  </Button>
-                              </div>
-                          </CardContent>
-                      </Card>
-                  </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        {coincidenceReport && (
+            <div className="space-y-4 pt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Reporte de Coincidencias CUPS</CardTitle>
+                        <CardDescription>Resultados del cruce entre el mapeo CUPS y los archivos RIPS cargados, enriquecido con datos de plantillas.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        
+                        <Accordion type="single" collapsible className="w-full" defaultValue='item-0'>
+                          {Object.values(coincidenceReport.prestadores).map((prestador, index) => (
+                            <AccordionItem value={`item-${index}`} key={prestador.NI + index}>
+                              <AccordionTrigger>
+                                <div className="flex items-center gap-2">
+                                  <Star className="text-amber-400" />
+                                  <span className="font-semibold">{prestador.nombrePrestador}</span>
+                                  <Badge variant="outline">NIT: {prestador.NI}</Badge>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
+                                  {prestador.departamento && <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento}</span></p>}
+                                  {prestador.municipio && <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio}</span></p>}
+                                  <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
+                                  <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
+                                  <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
+                                  
+                                  <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
+                                  <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
+                                    {prestador.detalles.map((d, i) => (
+                                      <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                                    ))}
+                                  </ul>
+                                  <p className="font-bold text-lg text-right pt-2">
+                                    Valor LMA Total: <span className="text-primary">{formatCurrency(prestador.valorTotal)}</span>
+                                  </p>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                        
+                        <ScrollArea className="whitespace-nowrap rounded-md border">
+                            <div className="max-h-96">
+                                <Table>
+                                    <TableHeader className="sticky top-0 bg-muted">
+                                        <TableRow>
+                                            <TableHead className="min-w-[100px]">CUPS</TableHead>
+                                            <TableHead className="min-w-[100px]">CUPS Vigente</TableHead>
+                                            <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
+                                            <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
+                                            <TableHead className="text-center">AP</TableHead>
+                                            <TableHead className="text-center">AC</TableHead>
+                                            <TableHead className="text-center">AT</TableHead>
+                                            <TableHead className="text-center">AN</TableHead>
+                                            <TableHead className="text-center">AH</TableHead>
+                                            <TableHead className="text-center">AU</TableHead>
+                                            <TableHead className="text-center">US</TableHead>
+                                            <TableHead className="text-center font-bold">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {coincidenceReport.data.map((row, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell className="font-mono text-xs">{row.cups}</TableCell>
+                                                <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
+                                                <TableCell className="text-xs">{row.nombre}</TableCell>
+                                                <TableCell className="text-xs">{row.tipoSer}</TableCell>
+                                                {Object.values(row.coincidences).map((count, i) => (
+                                                    <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
+                                                ))}
+                                                <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                        <div className="flex justify-end pt-4">
+                            <Button onClick={() => exportCoincidenceToExcel(coincidenceReport)}>
+                                <Download className="mr-2"/>
+                                Exportar Reporte a Excel
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )}
 
-        {cupsData.length === 0 && !cupsFile && (
+        {!cupsFile && !isProcessing && (
             <div className="text-center text-muted-foreground p-8">
-              <p>Seleccione una de las opciones superiores para empezar.</p>
+              <p>Comience cargando un archivo de mapeo CUPS en el Paso 1.</p>
             </div>
         )}
       </CardContent>
