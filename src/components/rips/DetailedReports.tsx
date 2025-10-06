@@ -248,7 +248,7 @@ export default function DetailedReports({
       <CardContent className="space-y-6">
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
           <AccordionItem value="item-1">
-            <AccordionTrigger className="text-lg font-semibold">Cruce con Mapeo CUPS</AccordionTrigger>
+            <AccordionTrigger className="text-lg font-semibold">Cruce con Mapeo y Análisis de Contratos</AccordionTrigger>
             <AccordionContent className="pt-4 space-y-6">
               <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
                 <p className="text-sm text-muted-foreground flex-1">
@@ -392,15 +392,10 @@ export default function DetailedReports({
                       </Card>
                   </div>
               )}
-            </AccordionContent>
-          </AccordionItem>
-          
-          <Separator />
+              
+              <Separator />
+              <ContractAnalysis />
 
-          <AccordionItem value="item-2">
-            <AccordionTrigger className="text-lg font-semibold">Análisis de Contratos</AccordionTrigger>
-            <AccordionContent className="pt-4">
-                <ContractAnalysis />
             </AccordionContent>
           </AccordionItem>
         </Accordion>
