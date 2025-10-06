@@ -110,7 +110,7 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet);
+                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, {header: 1}); // header: 1 to get array of arrays
                 setData(jsonData);
                 resolve();
             } catch (error) {
@@ -239,21 +239,86 @@ export default function DetailedReports({
     // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
+    // Create maps for faster lookups
+    const asisteMapByNit = new Map<string, GenericRow>();
     if (asisteData.length > 0) {
-        const asisteMap = new Map<string, GenericRow>();
-        asisteData.forEach(row => {
-            const nit = row['ID Nit'];
-            if (nit) asisteMap.set(nit.toString(), row);
-        });
+        const asisteHeaders = asisteData[0];
+        const nitIndex = asisteHeaders.indexOf('ID Nit');
+        if(nitIndex !== -1) {
+          for(let i = 1; i < asisteData.length; i++) {
+              const row = asisteData[i];
+              const nit = row[nitIndex]?.toString();
+              if (nit) asisteMapByNit.set(nit, row);
+          }
+        }
+    }
 
-        for (const key in enrichedGlobalAf) {
-            const prestador = enrichedGlobalAf[key];
-            const asisteRow = asisteMap.get(prestador.NI);
-            if (asisteRow) {
-                prestador.departamento = asisteRow['Departamento'];
-                prestador.municipio = asisteRow['Municipio'];
+    const asisteMapByContrato = new Map<string, GenericRow>();
+     if (asisteData.length > 0) {
+        const headers = asisteData[0];
+        const contratoIndex = headers.indexOf('Número de Contrato');
+        if(contratoIndex !== -1) {
+          for(let i = 1; i < asisteData.length; i++) {
+              const row = asisteData[i];
+              const contrato = row[contratoIndex]?.toString();
+              if(contrato) asisteMapByContrato.set(contrato, row);
+          }
+        }
+    }
+    
+    const especialidadesMapByContrato = new Map<string, GenericRow>();
+    if (especialidadesData.length > 0) {
+        const headers = especialidadesData[0];
+        const contratoIndex = headers.indexOf('Número de Contrato');
+        if(contratoIndex !== -1) {
+           for(let i = 1; i < especialidadesData.length; i++) {
+              const row = especialidadesData[i];
+              const contrato = row[contratoIndex]?.toString();
+              if(contrato) especialidadesMapByContrato.set(contrato, row);
+          }
+        }
+    }
+
+    for (const key in enrichedGlobalAf) {
+        const prestador = enrichedGlobalAf[key];
+        
+        // Enrich with location data from Asiste-EspeB using NIT
+        const asisteRowByNit = asisteMapByNit.get(prestador.NI);
+        if (asisteRowByNit && asisteData[0]) {
+            const headers = asisteData[0];
+            const deptoIndex = headers.indexOf('Departamento');
+            const municipioIndex = headers.indexOf('Municipio');
+            if(deptoIndex !== -1) prestador.departamento = asisteRowByNit[deptoIndex];
+            if(municipioIndex !== -1) prestador.municipio = asisteRowByNit[municipioIndex];
+        }
+
+        // Enrich with contract value based on regimen
+        const regimen = prestador.regimen.toUpperCase();
+        let foundValue: number | undefined = undefined;
+
+        // Search in Asiste-EspeB by contract number
+        const asisteRowByContrato = asisteMapByContrato.get(prestador.contrato);
+        if (asisteRowByContrato && asisteData[0]) {
+            const headers = asisteData[0];
+            const colIndex = regimen === 'SUBSIDIADO' ? headers.indexOf('Valor Subsidiado') : headers.indexOf('Valor Contributivo'); // Assuming column names J and K are these
+            if (colIndex !== -1 && typeof asisteRowByContrato[colIndex] === 'number') {
+                foundValue = asisteRowByContrato[colIndex];
             }
         }
+
+        // If not found, search in Especialidades by contract number
+        if (foundValue === undefined) {
+            const especialidadesRow = especialidadesMapByContrato.get(prestador.contrato);
+            if (especialidadesRow && especialidadesData[0]) {
+                 const headers = especialidadesData[0];
+                 const colIndex = regimen === 'SUBSIDIADO' ? headers.indexOf('Valor Subsidiado') : headers.indexOf('Valor Contributivo'); // Assuming column names K and L are these
+                 if (colIndex !== -1 && typeof especialidadesRow[colIndex] === 'number') {
+                    foundValue = especialidadesRow[colIndex];
+                }
+            }
+        }
+        
+        prestador.valorPorContrato = foundValue;
     }
 
 
@@ -315,7 +380,8 @@ export default function DetailedReports({
      toast({ title: "Reporte de coincidencias generado." });
   }
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value?: number) => {
+    if(value === undefined) return 'N/A';
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   };
 
@@ -351,7 +417,7 @@ export default function DetailedReports({
                 <CardContent className="space-y-4 pt-6">
                     <Uploader
                         title="Plantilla Asiste-EspeB"
-                        description="Para datos de ubicación (Depto/Municipio)."
+                        description="Para datos de ubicación (Depto/Municipio) y valores de contrato."
                         file={asisteFile}
                         inputRef={asisteInputRef}
                         onFileChange={(e) => handleGenericFileChange(e, setAsisteFile, setAsisteData)}
@@ -363,7 +429,7 @@ export default function DetailedReports({
                     />
                     <Uploader
                         title="Plantilla Especialidades"
-                        description="Para cruzar por número de contrato."
+                        description="Para cruzar por número de contrato y valores."
                         file={especialidadesFile}
                         inputRef={especialidadesInputRef}
                         onFileChange={(e) => handleGenericFileChange(e, setEspecialidadesFile, setEspecialidadesData)}
@@ -437,6 +503,7 @@ export default function DetailedReports({
                                   {prestador.departamento && <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento}</span></p>}
                                   {prestador.municipio && <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio}</span></p>}
                                   <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
+                                  {prestador.valorPorContrato !== undefined && <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>}
                                   <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                   <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
                                   

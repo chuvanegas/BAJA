@@ -15,6 +15,7 @@ export type AfProviderData = {
   valorTotal: number;
   departamento?: string;
   municipio?: string;
+  valorPorContrato?: number;
 };
 
 export type GlobalAfSummary = Record<string, AfProviderData>;
