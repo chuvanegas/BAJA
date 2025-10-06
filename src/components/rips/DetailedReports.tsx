@@ -84,6 +84,50 @@ export default function DetailedReports({
   const asisteInputRef = useRef<HTMLInputElement>(null);
   const especialidadesInputRef = useRef<HTMLInputElement>(null);
 
+  const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
+    return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, {
+                  // Attempt to standardize headers by trimming and converting to lowercase
+                  header: "A",
+                  transform: (h: string) => h.trim().toLowerCase()
+                });
+
+                if (jsonData.length > 0) {
+                    const headers: string[] = Object.values(jsonData[0]);
+                    const body = jsonData.slice(1);
+                    const finalJson = body.map(rowObj => {
+                        const newRow: GenericRow = {};
+                        const rowValues = Object.values(rowObj);
+                        headers.forEach((header, index) => {
+                            newRow[header.trim()] = rowValues[index];
+                        });
+                        return newRow;
+                    });
+                    setData(finalJson);
+                } else {
+                  setData([]);
+                }
+                resolve();
+            } catch (error) {
+                console.error("Error processing enrichment file:", error);
+                toast({ title: `Error al procesar ${file.name}`, variant: "destructive" });
+                reject(error);
+            }
+        };
+        reader.onerror = (error) => {
+            toast({ title: `Error de lectura en ${file.name}`, variant: "destructive" });
+            reject(error);
+        }
+        reader.readAsBinaryString(file);
+    });
+  }
 
   const handleGenericFileChange = (
       event: React.ChangeEvent<HTMLInputElement>,
@@ -101,32 +145,6 @@ export default function DetailedReports({
         }
     };
     
-  const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
-    return new Promise<void>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet);
-                setData(jsonData);
-                resolve();
-            } catch (error) {
-                console.error("Error processing enrichment file:", error);
-                toast({ title: `Error al procesar ${file.name}`, variant: "destructive" });
-                reject(error);
-            }
-        };
-        reader.onerror = (error) => {
-            toast({ title: `Error de lectura en ${file.name}`, variant: "destructive" });
-            reject(error);
-        }
-        reader.readAsBinaryString(file);
-    });
-  }
-
   const handleClean = () => {
     setCupsFile(null);
     setCupsData([]);
@@ -222,7 +240,7 @@ export default function DetailedReports({
     }
   };
 
-  const handleGenerateCoincidenceReport = () => {
+  const handleGenerateCoincidenceReport = async () => {
     if (cupsData.length === 0) {
         toast({ title: "Sin datos de mapeo", description: "Cargue y procese un archivo de mapeo CUPS primero.", variant: "destructive"});
         return;
@@ -236,6 +254,19 @@ export default function DetailedReports({
         return;
     }
 
+    setIsProcessing(true);
+    // Ensure enrichment files are processed before generating the report
+    const enrichmentPromises = [];
+    if (asisteFile && asisteData.length === 0) {
+      enrichmentPromises.push(processEnrichmentFile(asisteFile, setAsisteData));
+    }
+    if (especialidadesFile && especialidadesData.length === 0) {
+      enrichmentPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
+    }
+    await Promise.all(enrichmentPromises);
+    setIsProcessing(false);
+
+
     // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
@@ -243,49 +274,58 @@ export default function DetailedReports({
     const asisteMapByContrato = new Map<string, GenericRow>();
     if (asisteData.length > 0) {
         for (const row of asisteData) {
-            const contrato = row['Número de Contrato']?.toString();
-            if (contrato) asisteMapByContrato.set(contrato, row);
+            const contrato = row['Número de Contrato']?.toString() || row['numero de contrato']?.toString();
+            if (contrato) asisteMapByContrato.set(contrato.trim(), row);
         }
     }
     
     const especialidadesMapByContrato = new Map<string, GenericRow>();
     if (especialidadesData.length > 0) {
         for (const row of especialidadesData) {
-            const contrato = row['Número de Contrato']?.toString();
-            if(contrato) especialidadesMapByContrato.set(contrato, row);
+            const contrato = row['Número de Contrato']?.toString() || row['numero de contrato']?.toString();
+            if(contrato) especialidadesMapByContrato.set(contrato.trim(), row);
         }
     }
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
         const regimen = prestador.regimen.toUpperCase();
+        const contratoKey = prestador.contrato?.trim();
         let foundValue: number | undefined = undefined;
         let foundLocation = false;
 
+        if (!contratoKey) continue;
+
         // Search in Asiste-EspeB by contract number
-        const asisteRow = asisteMapByContrato.get(prestador.contrato);
+        const asisteRow = asisteMapByContrato.get(contratoKey);
         if (asisteRow) {
-            prestador.departamento = asisteRow['Departamento'];
-            prestador.municipio = asisteRow['Municipio'];
+            prestador.departamento = asisteRow['Departamento'] || asisteRow['departamento'];
+            prestador.municipio = asisteRow['Municipio'] || asisteRow['municipio'];
             foundLocation = true;
 
-            const colName = regimen === 'SUBSIDIADO' ? 'Valor Subsidiado' : 'Valor Contributivo';
-            if (asisteRow[colName] && typeof asisteRow[colName] === 'number') {
+            const colName = regimen === 'SUBSIDIADO' 
+                ? (asisteRow['Valor Subsidiado'] !== undefined ? 'Valor Subsidiado' : 'valor subsidiado') 
+                : (asisteRow['Valor Contributivo'] !== undefined ? 'Valor Contributivo' : 'valor contributivo');
+            
+            if (asisteRow[colName] !== undefined && typeof asisteRow[colName] === 'number') {
                 foundValue = asisteRow[colName];
             }
         }
 
         // If not found, search in Especialidades by contract number
         if (foundValue === undefined || !foundLocation) {
-            const especialidadesRow = especialidadesMapByContrato.get(prestador.contrato);
+            const especialidadesRow = especialidadesMapByContrato.get(contratoKey);
             if (especialidadesRow) {
                  if (!foundLocation) {
-                    prestador.departamento = especialidadesRow['Departamento'];
-                    prestador.municipio = especialidadesRow['Municipio'];
+                    prestador.departamento = especialidadesRow['Departamento'] || especialidadesRow['departamento'];
+                    prestador.municipio = especialidadesRow['Municipio'] || especialidadesRow['municipio'];
                  }
                  if(foundValue === undefined) {
-                    const colName = regimen === 'SUBSIDIADO' ? 'Valor Subsidiado' : 'Valor Contributivo';
-                     if (especialidadesRow[colName] && typeof especialidadesRow[colName] === 'number') {
+                    const colName = regimen === 'SUBSIDIADO' 
+                        ? (especialidadesRow['Valor Subsidiado'] !== undefined ? 'Valor Subsidiado' : 'valor subsidiado')
+                        : (especialidadesRow['Valor Contributivo'] !== undefined ? 'Valor Contributivo' : 'valor contributivo');
+
+                     if (especialidadesRow[colName] !== undefined && typeof especialidadesRow[colName] === 'number') {
                         foundValue = especialidadesRow[colName];
                     }
                  }
@@ -442,8 +482,8 @@ export default function DetailedReports({
                       </div>
                   </div>
                   <div className="flex justify-center py-4">
-                      <Button onClick={handleGenerateCoincidenceReport} size="lg">
-                          <Search className="mr-2"/>
+                      <Button onClick={handleGenerateCoincidenceReport} disabled={isProcessing} size="lg">
+                          {isProcessing ? <Cog className="animate-spin" /> : <Search />}
                           Generar Reporte de Coincidencias
                       </Button>
                   </div>
@@ -474,10 +514,10 @@ export default function DetailedReports({
                               </AccordionTrigger>
                               <AccordionContent>
                                 <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
-                                  {prestador.departamento && <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento}</span></p>}
-                                  {prestador.municipio && <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio}</span></p>}
+                                  <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento || 'No encontrado'}</span></p>
+                                  <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio || 'No encontrado'}</span></p>
                                   <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
-                                  {prestador.valorPorContrato !== undefined && <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>}
+                                  <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>
                                   <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                   <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
                                   
@@ -553,7 +593,3 @@ export default function DetailedReports({
     </Card>
   );
 }
-
-    
-
-    
