@@ -92,63 +92,69 @@ export default function ContractAnalysis({
       toast({ title: "Archivo y datos limpiados." });
   }
 
-  return (
-    <div className="space-y-6">
-        {/* Asiste-EspeB Uploader */}
-        <Card>
-            <CardHeader>
-                <CardTitle>Plantilla Asiste-EspeB</CardTitle>
-                <CardDescription>Cargue el archivo de Excel para enriquecer el reporte con datos de ubicación (Departamento, Municipio).</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
-                    <input type="file" ref={asisteInputRef} onChange={handleFileChange('asiste')} className="hidden" accept=".xlsx"/>
-                    <div className="flex-1">
-                        <Button onClick={() => asisteInputRef.current?.click()} disabled={!!asisteFile}>
-                            <Upload className="mr-2" /> Cargar Asiste-EspeB
-                        </Button>
-                    </div>
-                    {asisteFile && (
-                        <div className="flex items-center gap-2">
-                             <File className="text-primary"/>
-                            <span className="text-sm font-medium">{asisteFile.name}</span>
-                            <Badge variant="secondary">{Math.round(asisteFile.size / 1024)} KB</Badge>
-                            <Button variant="ghost" size="icon" onClick={handleClean('asiste')}>
-                                <Trash2 className="w-4 h-4"/>
-                            </Button>
-                        </div>
-                    )}
+  const Uploader = ({
+      title,
+      description,
+      file,
+      inputRef,
+      onFileChange,
+      onClean
+  }: {
+      title: string;
+      description: string;
+      file: File | null;
+      inputRef: React.RefObject<HTMLInputElement>;
+      onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+      onClean: () => void;
+  }) => (
+       <div className="p-4 border rounded-lg space-y-3">
+          <h4 className="font-semibold">{title}</h4>
+          <p className="text-sm text-muted-foreground">{description}</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <input type="file" ref={inputRef} onChange={onFileChange} className="hidden" accept=".xlsx"/>
+            <div className="flex-1">
+                <Button onClick={() => inputRef.current?.click()} disabled={!!file} size="sm">
+                    <Upload className="mr-2" /> Cargar
+                </Button>
+            </div>
+            {file && (
+                <div className="flex items-center gap-2 text-sm">
+                     <File className="text-primary w-4 h-4"/>
+                    <span className="font-medium truncate max-w-xs">{file.name}</span>
+                    <Badge variant="secondary">{Math.round(file.size / 1024)} KB</Badge>
+                    <Button variant="ghost" size="icon" onClick={onClean} className="h-6 w-6">
+                        <Trash2 className="w-4 h-4"/>
+                    </Button>
                 </div>
-            </CardContent>
-        </Card>
+            )}
+          </div>
+       </div>
+  );
 
-        {/* Especialidades Uploader */}
-        <Card>
-            <CardHeader>
-                <CardTitle>Plantilla Especialidades</CardTitle>
-                <CardDescription>Cargue el archivo de Excel para cruzar por número de contrato.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="flex flex-col items-start gap-4 p-4 border rounded-lg md:flex-row md:items-center">
-                    <input type="file" ref={especialidadesInputRef} onChange={handleFileChange('especialidades')} className="hidden" accept=".xlsx"/>
-                    <div className="flex-1">
-                        <Button onClick={() => especialidadesInputRef.current?.click()} disabled={!!especialidadesFile}>
-                            <Upload className="mr-2" /> Cargar Especialidades
-                        </Button>
-                    </div>
-                     {especialidadesFile && (
-                        <div className="flex items-center gap-2">
-                             <File className="text-primary"/>
-                            <span className="text-sm font-medium">{especialidadesFile.name}</span>
-                            <Badge variant="secondary">{Math.round(especialidadesFile.size / 1024)} KB</Badge>
-                            <Button variant="ghost" size="icon" onClick={handleClean('especialidades')}>
-                                <Trash2 className="w-4 h-4"/>
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-    </div>
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Plantillas de Enriquecimiento</CardTitle>
+        <CardDescription>Cargue los archivos de Excel para enriquecer el reporte con datos adicionales de ubicación y contratos.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Uploader
+            title="Plantilla Asiste-EspeB"
+            description="Para datos de ubicación (Depto/Municipio)."
+            file={asisteFile}
+            inputRef={asisteInputRef}
+            onFileChange={handleFileChange('asiste')}
+            onClean={handleClean('asiste')}
+        />
+        <Uploader
+            title="Plantilla Especialidades"
+            description="Para cruzar por número de contrato."
+            file={especialidadesFile}
+            inputRef={especialidadesInputRef}
+            onFileChange={handleFileChange('especialidades')}
+            onClean={handleClean('especialidades')}
+        />
+      </CardContent>
+    </Card>
   );
 }
