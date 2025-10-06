@@ -68,13 +68,17 @@ export default function DetailedReports({
     if(fileInputRef.current) {
         fileInputRef.current.value = "";
     }
-    toast({
-        title: "Archivo removido",
-    });
   }
 
   const handleClean = () => {
     handleRemoveFile();
+    setAsisteFile(null);
+    setEspecialidadesFile(null);
+    setAsisteData([]);
+    setEspecialidadesData([]);
+    toast({
+        title: "Archivos y datos limpiados",
+    });
   }
 
   const handleProcessFile = () => {
@@ -293,21 +297,12 @@ export default function DetailedReports({
                     <Upload className="mr-2" />
                     Cargar Mapeo
                   </Button>
-                  <Button variant="ghost" onClick={handleClean} disabled={!cupsFile && !coincidenceReport}>
+                  <Button variant="ghost" onClick={handleClean} disabled={!cupsFile && !coincidenceReport && !asisteFile && !especialidadesFile}>
                     <Trash2 className="mr-2" />
                     Limpiar
                   </Button>
                 </div>
               </div>
-              
-              <ContractAnalysis 
-                asisteFile={asisteFile}
-                setAsisteFile={setAsisteFile}
-                setAsisteData={setAsisteData}
-                especialidadesFile={especialidadesFile}
-                setEspecialidadesFile={setEspecialidadesFile}
-                setEspecialidadesData={setEspecialidadesData}
-              />
               
               {cupsFile && (
                   <div className="p-4 rounded-md bg-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -323,6 +318,15 @@ export default function DetailedReports({
                   </div>
               )}
 
+              <ContractAnalysis 
+                asisteFile={asisteFile}
+                setAsisteFile={setAsisteFile}
+                setAsisteData={setAsisteData}
+                especialidadesFile={especialidadesFile}
+                setEspecialidadesFile={setEspecialidadesFile}
+                setEspecialidadesData={setEspecialidadesData}
+              />
+              
               {cupsData.length > 0 && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
