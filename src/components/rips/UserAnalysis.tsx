@@ -89,7 +89,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     }
     setIsProcessing(true);
 
-    let allRipsBlocks: Record<string, string[]> = {};
+    const allRipsBlocks: Record<string, string[]> = {};
     for (const content of Object.values(ripsFileContents)) {
         const blocks = parseRIPS(content);
         for (const segment in blocks) {
@@ -194,7 +194,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
           </Button>
         </div>
 
-        {users.length > 0 && (
+        {(userRanking.length > 0 || activityRanking.length > 0) && (
           <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
              <Card>
                 <CardHeader>
