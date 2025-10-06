@@ -132,7 +132,7 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                 const userId = cols[userPos]?.trim();
                 const cupsCode = cols[codePos]?.trim();
 
-                if(!userId || !cupsCode || cupsCode.length <= 1) return;
+                if(!userId || !cupsCode || !cupsMap.has(cupsCode)) return;
 
                 const user = usersMap.get(userId);
                 const description = cupsMap.get(cupsCode);
