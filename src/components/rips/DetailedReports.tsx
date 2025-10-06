@@ -245,14 +245,29 @@ export default function DetailedReports({
     if (especialidadesFile && especialidadesData.length === 0) {
       enrichmentPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
     }
-    await Promise.all(enrichmentPromises);
-    setIsProcessing(false);
+    
+    try {
+      await Promise.all(enrichmentPromises);
+    } catch (e) {
+        setIsProcessing(false);
+        toast({ title: "Error", description: "No se pudieron procesar las plantillas de enriquecimiento.", variant: "destructive" });
+        return;
+    }
+
 
     // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
-    // Create maps for faster lookups from contract number
-    // We need to find the column index for 'Número de Contrato' first.
+    // Column letters to index (0-based)
+    const colToIndex = (col: string): number => {
+        let index = 0;
+        for (let i = 0; i < col.length; i++) {
+            index = index * 26 + (col.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
+        }
+        return index - 1;
+    };
+    
+    // Find column index by searching for possible header names
     const findColumnIndex = (headerRow: any[], possibleNames: string[]): number => {
         if (!headerRow) return -1;
         for (const name of possibleNames) {
@@ -267,7 +282,11 @@ export default function DetailedReports({
         if (!data || data.length < 1) return map;
         const headerRow = data[0];
         const contractIndex = findColumnIndex(headerRow, contractColNames);
-        if (contractIndex === -1) return map;
+
+        if (contractIndex === -1) {
+            console.warn(`Could not find contract column in sheet with headers: ${headerRow.join(', ')}`);
+            return map;
+        }
         
         for (let i = 1; i < data.length; i++) {
             const row = data[i];
@@ -276,27 +295,19 @@ export default function DetailedReports({
         }
         return map;
     };
-    
-    const asisteMapByContrato = createMapByContract(asisteData, ['Número de Contrato', 'numero de contrato']);
-    const especialidadesMapByContrato = createMapByContract(especialidadesData, ['Número de Contrato', 'numero de contrato']);
 
+    const contractPossibleNames = ['Número de Contrato', 'numero de contrato', 'contrato'];
+    const asisteMapByContrato = createMapByContract(asisteData, contractPossibleNames);
+    const especialidadesMapByContrato = createMapByContract(especialidadesData, contractPossibleNames);
+    
     const asisteHeaders = asisteData?.[0] || [];
     const especialidadesHeaders = especialidadesData?.[0] || [];
     
-    const asisteDeptoIndex = findColumnIndex(asisteHeaders, ['departamento']);
-    const asisteMunIndex = findColumnIndex(asisteHeaders, ['municipio']);
-    const espDeptoIndex = findColumnIndex(especialidadesHeaders, ['departamento']);
-    const espMunIndex = findColumnIndex(especialidadesHeaders, ['municipio']);
+    const asisteDeptoIndex = findColumnIndex(asisteHeaders, ['departamento', 'depto']);
+    const asisteMunIndex = findColumnIndex(asisteHeaders, ['municipio', 'mun']);
+    const espDeptoIndex = findColumnIndex(especialidadesHeaders, ['departamento', 'depto']);
+    const espMunIndex = findColumnIndex(especialidadesHeaders, ['municipio', 'mun']);
     
-    // Column letters to index (0-based)
-    const colToIndex = (col: string): number => {
-        let index = 0;
-        for (let i = 0; i < col.length; i++) {
-            index = index * 26 + (col.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
-        }
-        return index - 1;
-    };
-
     const especialidadesSubsidiadoIndex = colToIndex('Y');
     const especialidadesContributivoIndex = colToIndex('Z');
     const asisteSubsidiadoIndex = colToIndex('AW');
@@ -318,11 +329,14 @@ export default function DetailedReports({
         if (asisteRow) {
             if (asisteDeptoIndex !== -1) prestador.departamento = asisteRow[asisteDeptoIndex];
             if (asisteMunIndex !== -1) prestador.municipio = asisteRow[asisteMunIndex];
-            foundLocation = !!(prestador.departamento && prestador.municipio);
+            foundLocation = !!(prestador.departamento || prestador.municipio);
 
             const valIndex = regimen === 'SUBSIDIADO' ? asisteSubsidiadoIndex : asisteContributivoIndex;
-            if (asisteRow[valIndex] !== undefined && typeof asisteRow[valIndex] === 'number') {
-                foundValue = asisteRow[valIndex];
+            const cellValue = asisteRow[valIndex];
+            if (cellValue !== undefined && typeof cellValue === 'number') {
+                foundValue = cellValue;
+            } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
+                foundValue = parseFloat(cellValue);
             }
         }
 
@@ -335,8 +349,11 @@ export default function DetailedReports({
              }
              if (foundValue === undefined) {
                 const valIndex = regimen === 'SUBSIDIADO' ? especialidadesSubsidiadoIndex : especialidadesContributivoIndex;
-                if (especialidadesRow[valIndex] !== undefined && typeof especialidadesRow[valIndex] === 'number') {
-                    foundValue = especialidadesRow[valIndex];
+                const cellValue = especialidadesRow[valIndex];
+                if (cellValue !== undefined && typeof cellValue === 'number') {
+                    foundValue = cellValue;
+                } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
+                    foundValue = parseFloat(cellValue);
                 }
              }
         }
@@ -398,13 +415,14 @@ export default function DetailedReports({
 
         globalCoincidences.push(coincidence);
     });
-
+    
+    setIsProcessing(false);
     setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences });
      toast({ title: "Reporte de coincidencias generado." });
   }
 
   const formatCurrency = (value?: number) => {
-    if(value === undefined) return 'N/A';
+    if(value === undefined || value === null || isNaN(value)) return 'N/A';
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   };
 
@@ -602,5 +620,3 @@ export default function DetailedReports({
     </Card>
   );
 }
-
-    
