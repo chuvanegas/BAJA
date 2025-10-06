@@ -93,27 +93,9 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, {
-                  // Attempt to standardize headers by trimming and converting to lowercase
-                  header: "A",
-                  transform: (h: string) => h.trim().toLowerCase()
-                });
-
-                if (jsonData.length > 0) {
-                    const headers: string[] = Object.values(jsonData[0]);
-                    const body = jsonData.slice(1);
-                    const finalJson = body.map(rowObj => {
-                        const newRow: GenericRow = {};
-                        const rowValues = Object.values(rowObj);
-                        headers.forEach((header, index) => {
-                            newRow[header.trim()] = rowValues[index];
-                        });
-                        return newRow;
-                    });
-                    setData(finalJson);
-                } else {
-                  setData([]);
-                }
+                // Use header: 1 to get array of arrays, which is easier for column letter access
+                const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, { header: 1 });
+                setData(jsonData);
                 resolve();
             } catch (error) {
                 console.error("Error processing enrichment file:", error);
@@ -266,70 +248,97 @@ export default function DetailedReports({
     await Promise.all(enrichmentPromises);
     setIsProcessing(false);
 
-
     // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
     // Create maps for faster lookups from contract number
-    const asisteMapByContrato = new Map<string, GenericRow>();
-    if (asisteData.length > 0) {
-        for (const row of asisteData) {
-            const contrato = row['Número de Contrato']?.toString() || row['numero de contrato']?.toString();
-            if (contrato) asisteMapByContrato.set(contrato.trim(), row);
+    // We need to find the column index for 'Número de Contrato' first.
+    const findColumnIndex = (headerRow: any[], possibleNames: string[]): number => {
+        if (!headerRow) return -1;
+        for (const name of possibleNames) {
+            const index = headerRow.findIndex(cell => typeof cell === 'string' && cell.toLowerCase().trim() === name.toLowerCase());
+            if (index !== -1) return index;
         }
-    }
+        return -1;
+    };
+
+    const createMapByContract = (data: any[][], contractColNames: string[]): Map<string, any[]> => {
+        const map = new Map<string, any[]>();
+        if (!data || data.length < 1) return map;
+        const headerRow = data[0];
+        const contractIndex = findColumnIndex(headerRow, contractColNames);
+        if (contractIndex === -1) return map;
+        
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            const contract = row[contractIndex]?.toString().trim();
+            if (contract) map.set(contract, row);
+        }
+        return map;
+    };
     
-    const especialidadesMapByContrato = new Map<string, GenericRow>();
-    if (especialidadesData.length > 0) {
-        for (const row of especialidadesData) {
-            const contrato = row['Número de Contrato']?.toString() || row['numero de contrato']?.toString();
-            if(contrato) especialidadesMapByContrato.set(contrato.trim(), row);
+    const asisteMapByContrato = createMapByContract(asisteData, ['Número de Contrato', 'numero de contrato']);
+    const especialidadesMapByContrato = createMapByContract(especialidadesData, ['Número de Contrato', 'numero de contrato']);
+
+    const asisteHeaders = asisteData?.[0] || [];
+    const especialidadesHeaders = especialidadesData?.[0] || [];
+    
+    const asisteDeptoIndex = findColumnIndex(asisteHeaders, ['departamento']);
+    const asisteMunIndex = findColumnIndex(asisteHeaders, ['municipio']);
+    const espDeptoIndex = findColumnIndex(especialidadesHeaders, ['departamento']);
+    const espMunIndex = findColumnIndex(especialidadesHeaders, ['municipio']);
+    
+    // Column letters to index (0-based)
+    const colToIndex = (col: string): number => {
+        let index = 0;
+        for (let i = 0; i < col.length; i++) {
+            index = index * 26 + (col.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
         }
-    }
+        return index - 1;
+    };
+
+    const especialidadesSubsidiadoIndex = colToIndex('Y');
+    const especialidadesContributivoIndex = colToIndex('Z');
+    const asisteSubsidiadoIndex = colToIndex('AW');
+    const asisteContributivoIndex = colToIndex('AV');
+
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
         const regimen = prestador.regimen.toUpperCase();
         const contratoKey = prestador.contrato?.trim();
+        
+        if (!contratoKey) continue;
+        
         let foundValue: number | undefined = undefined;
         let foundLocation = false;
-
-        if (!contratoKey) continue;
-
+        
         // Search in Asiste-EspeB by contract number
         const asisteRow = asisteMapByContrato.get(contratoKey);
         if (asisteRow) {
-            prestador.departamento = asisteRow['Departamento'] || asisteRow['departamento'];
-            prestador.municipio = asisteRow['Municipio'] || asisteRow['municipio'];
-            foundLocation = true;
+            if (asisteDeptoIndex !== -1) prestador.departamento = asisteRow[asisteDeptoIndex];
+            if (asisteMunIndex !== -1) prestador.municipio = asisteRow[asisteMunIndex];
+            foundLocation = !!(prestador.departamento && prestador.municipio);
 
-            const colName = regimen === 'SUBSIDIADO' 
-                ? (asisteRow['Valor Subsidiado'] !== undefined ? 'Valor Subsidiado' : 'valor subsidiado') 
-                : (asisteRow['Valor Contributivo'] !== undefined ? 'Valor Contributivo' : 'valor contributivo');
-            
-            if (asisteRow[colName] !== undefined && typeof asisteRow[colName] === 'number') {
-                foundValue = asisteRow[colName];
+            const valIndex = regimen === 'SUBSIDIADO' ? asisteSubsidiadoIndex : asisteContributivoIndex;
+            if (asisteRow[valIndex] !== undefined && typeof asisteRow[valIndex] === 'number') {
+                foundValue = asisteRow[valIndex];
             }
         }
 
         // If not found, search in Especialidades by contract number
-        if (foundValue === undefined || !foundLocation) {
-            const especialidadesRow = especialidadesMapByContrato.get(contratoKey);
-            if (especialidadesRow) {
-                 if (!foundLocation) {
-                    prestador.departamento = especialidadesRow['Departamento'] || especialidadesRow['departamento'];
-                    prestador.municipio = especialidadesRow['Municipio'] || especialidadesRow['municipio'];
-                 }
-                 if(foundValue === undefined) {
-                    const colName = regimen === 'SUBSIDIADO' 
-                        ? (especialidadesRow['Valor Subsidiado'] !== undefined ? 'Valor Subsidiado' : 'valor subsidiado')
-                        : (especialidadesRow['Valor Contributivo'] !== undefined ? 'Valor Contributivo' : 'valor contributivo');
-
-                     if (especialidadesRow[colName] !== undefined && typeof especialidadesRow[colName] === 'number') {
-                        foundValue = especialidadesRow[colName];
-                    }
-                 }
-            }
+        const especialidadesRow = especialidadesMapByContrato.get(contratoKey);
+        if (especialidadesRow) {
+             if (!foundLocation) {
+                if (espDeptoIndex !== -1) prestador.departamento = especialidadesRow[espDeptoIndex];
+                if (espMunIndex !== -1) prestador.municipio = especialidadesRow[espMunIndex];
+             }
+             if (foundValue === undefined) {
+                const valIndex = regimen === 'SUBSIDIADO' ? especialidadesSubsidiadoIndex : especialidadesContributivoIndex;
+                if (especialidadesRow[valIndex] !== undefined && typeof especialidadesRow[valIndex] === 'number') {
+                    foundValue = especialidadesRow[valIndex];
+                }
+             }
         }
         
         prestador.valorPorContrato = foundValue;
@@ -593,3 +602,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
