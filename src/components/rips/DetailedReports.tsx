@@ -300,6 +300,15 @@ export default function DetailedReports({
                 </div>
               </div>
               
+              <ContractAnalysis 
+                asisteFile={asisteFile}
+                setAsisteFile={setAsisteFile}
+                setAsisteData={setAsisteData}
+                especialidadesFile={especialidadesFile}
+                setEspecialidadesFile={setEspecialidadesFile}
+                setEspecialidadesData={setEspecialidadesData}
+              />
+              
               {cupsFile && (
                   <div className="p-4 rounded-md bg-secondary/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="flex items-center gap-2">
@@ -421,17 +430,6 @@ export default function DetailedReports({
                       </Card>
                   </div>
               )}
-              
-              <Separator />
-              <ContractAnalysis 
-                asisteFile={asisteFile}
-                setAsisteFile={setAsisteFile}
-                setAsisteData={setAsisteData}
-                especialidadesFile={especialidadesFile}
-                setEspecialidadesFile={setEspecialidadesFile}
-                setEspecialidadesData={setEspecialidadesData}
-              />
-
             </AccordionContent>
           </AccordionItem>
         </Accordion>
