@@ -154,11 +154,11 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     setActivityRanking(rankedActivities);
 
     const rankedUsers: UserRanking[] = Array.from(userActivityCounts.entries())
-      .map(([userId, count]) => ({
-        user: usersMap.get(userId)!,
-        count,
-      }))
-      .filter(item => item.user)
+      .map(([userId, count]) => {
+        const user = usersMap.get(userId);
+        return user ? { user, count } : null;
+      })
+      .filter((item): item is UserRanking => item !== null)
       .sort((a, b) => b.count - a.count);
     setUserRanking(rankedUsers);
 
