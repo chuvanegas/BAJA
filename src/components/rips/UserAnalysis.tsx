@@ -132,17 +132,17 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                 const userId = cols[userPos]?.trim();
                 const cupsCode = cols[codePos]?.trim();
 
-                if(userId && cupsCode && cupsCode.length > 1) { // Basic validation for CUPS code
-                    const user = usersMap.get(userId);
-                    const description = cupsMap.get(cupsCode) || 'Descripción no encontrada';
+                if(!userId || !cupsCode || cupsCode.length <= 1) return;
 
-                    if(user && description !== 'Descripción no encontrada') {
-                        const activity: UserActivity = { segment: seg, cups: cupsCode, description };
-                        user.activities.push(activity);
-                        
-                        userActivityCounts.set(userId, (userActivityCounts.get(userId) || 0) + 1);
-                        activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
-                    }
+                const user = usersMap.get(userId);
+                const description = cupsMap.get(cupsCode);
+
+                if(user && description) {
+                    const activity: UserActivity = { segment: seg, cups: cupsCode, description };
+                    user.activities.push(activity);
+                    
+                    userActivityCounts.set(userId, (userActivityCounts.get(userId) || 0) + 1);
+                    activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
                 }
             });
         }
