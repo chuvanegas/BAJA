@@ -113,8 +113,11 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     
     const cupsMap = new Map<string, string>();
     cupsData.forEach(c => {
-        if (c.CUPS) cupsMap.set(c.CUPS.toString(), c['NOMBRE CUPS']);
-        if (c['CUPS VIGENTE']) cupsMap.set(c['CUPS VIGENTE'].toString(), c['NOMBRE CUPS']);
+        const cupsCode = c.CUPS?.toString().trim();
+        const vigenteCupsCode = c['CUPS VIGENTE']?.toString().trim();
+        const nombre = c['NOMBRE CUPS']?.trim();
+        if (cupsCode && nombre) cupsMap.set(cupsCode, nombre);
+        if (vigenteCupsCode && nombre) cupsMap.set(vigenteCupsCode, nombre);
     });
 
     const activitySegments = { 'AC': {user: 2, code: 6}, 'AP': {user: 3, code: 7}, 'AU': {user: 2, code: 6}, 'AH': {user: 2, code: 8}, 'AN': {user: 2, code: 6}, 'AT': {user: 2, code: 6} };
@@ -126,18 +129,20 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                 const cols = line.split(',');
                 if (cols.length <= Math.max(userPos, codePos)) return;
                 
-                const userId = cols[userPos];
-                const cupsCode = cols[codePos];
+                const userId = cols[userPos]?.trim();
+                const cupsCode = cols[codePos]?.trim();
 
-                if(userId && cupsCode) {
+                if(userId && cupsCode && cupsCode.length > 1) { // Basic validation for CUPS code
                     const user = usersMap.get(userId);
-                    if(user) {
-                        const activity: UserActivity = { segment: seg, cups: cupsCode, description: cupsMap.get(cupsCode) || 'Descripción no encontrada' };
+                    const description = cupsMap.get(cupsCode) || 'Descripción no encontrada';
+
+                    if(user && description !== 'Descripción no encontrada') {
+                        const activity: UserActivity = { segment: seg, cups: cupsCode, description };
                         user.activities.push(activity);
                         
                         userActivityCounts.set(userId, (userActivityCounts.get(userId) || 0) + 1);
+                        activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
                     }
-                    activityCounts[cupsCode] = (activityCounts[cupsCode] || 0) + 1;
                 }
             });
         }
