@@ -93,7 +93,6 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                // Use header: 1 to get array of arrays, which is easier for column letter access
                 const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, { header: 1 });
                 setData(jsonData);
                 resolve();
@@ -267,7 +266,6 @@ export default function DetailedReports({
         return index - 1;
     };
     
-    // Find column index by searching for possible header names
     const findColumnIndex = (headerRow: any[], possibleNames: string[]): number => {
         if (!headerRow) return -1;
         for (const name of possibleNames) {
@@ -277,37 +275,15 @@ export default function DetailedReports({
         return -1;
     };
 
-    const createMapByContract = (data: any[][], contractColNames: string[]): Map<string, any[]> => {
-        const map = new Map<string, any[]>();
-        if (!data || data.length < 1) return map;
-        const headerRow = data[0];
-        const contractIndex = findColumnIndex(headerRow, contractColNames);
+    const asisteContractCol = colToIndex('G');
+    const especialidadesContractCol = colToIndex('E');
 
-        if (contractIndex === -1) {
-            console.warn(`Could not find contract column in sheet with headers: ${headerRow.join(', ')}`);
-            return map;
-        }
-        
-        for (let i = 1; i < data.length; i++) {
-            const row = data[i];
-            const contract = row[contractIndex]?.toString().trim();
-            if (contract) map.set(contract, row);
-        }
-        return map;
-    };
+    const asisteDeptoCol = colToIndex('C');
+    const asisteMunCol = colToIndex('D');
 
-    const contractPossibleNames = ['Número de Contrato', 'numero de contrato', 'contrato'];
-    const asisteMapByContrato = createMapByContract(asisteData, contractPossibleNames);
-    const especialidadesMapByContrato = createMapByContract(especialidadesData, contractPossibleNames);
-    
-    const asisteHeaders = asisteData?.[0] || [];
-    const especialidadesHeaders = especialidadesData?.[0] || [];
-    
-    const asisteDeptoIndex = findColumnIndex(asisteHeaders, ['departamento', 'depto']);
-    const asisteMunIndex = findColumnIndex(asisteHeaders, ['municipio', 'mun']);
-    const espDeptoIndex = findColumnIndex(especialidadesHeaders, ['departamento', 'depto']);
-    const espMunIndex = findColumnIndex(especialidadesHeaders, ['municipio', 'mun']);
-    
+    const espDeptoCol = colToIndex('B');
+    const espMunCol = colToIndex('C');
+
     const especialidadesSubsidiadoIndex = colToIndex('Y');
     const especialidadesContributivoIndex = colToIndex('Z');
     const asisteSubsidiadoIndex = colToIndex('AW');
@@ -322,14 +298,12 @@ export default function DetailedReports({
         if (!contratoKey) continue;
         
         let foundValue: number | undefined = undefined;
-        let foundLocation = false;
         
-        // Search in Asiste-EspeB by contract number
-        const asisteRow = asisteMapByContrato.get(contratoKey);
-        if (asisteRow) {
-            if (asisteDeptoIndex !== -1) prestador.departamento = asisteRow[asisteDeptoIndex];
-            if (asisteMunIndex !== -1) prestador.municipio = asisteRow[asisteMunIndex];
-            foundLocation = !!(prestador.departamento || prestador.municipio);
+        let asisteRow = asisteData.find(row => row[asisteContractCol] === contratoKey);
+        
+        if(asisteRow) {
+            prestador.departamento = asisteRow[asisteDeptoCol];
+            prestador.municipio = asisteRow[asisteMunCol];
 
             const valIndex = regimen === 'SUBSIDIADO' ? asisteSubsidiadoIndex : asisteContributivoIndex;
             const cellValue = asisteRow[valIndex];
@@ -338,16 +312,12 @@ export default function DetailedReports({
             } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
                 foundValue = parseFloat(cellValue);
             }
-        }
+        } else {
+            let especialidadesRow = especialidadesData.find(row => row[especialidadesContractCol] === contratoKey);
+            if(especialidadesRow) {
+                prestador.departamento = especialidadesRow[espDeptoCol];
+                prestador.municipio = especialidadesRow[espMunCol];
 
-        // If not found, search in Especialidades by contract number
-        const especialidadesRow = especialidadesMapByContrato.get(contratoKey);
-        if (especialidadesRow) {
-             if (!foundLocation) {
-                if (espDeptoIndex !== -1) prestador.departamento = especialidadesRow[espDeptoIndex];
-                if (espMunIndex !== -1) prestador.municipio = especialidadesRow[espMunIndex];
-             }
-             if (foundValue === undefined) {
                 const valIndex = regimen === 'SUBSIDIADO' ? especialidadesSubsidiadoIndex : especialidadesContributivoIndex;
                 const cellValue = especialidadesRow[valIndex];
                 if (cellValue !== undefined && typeof cellValue === 'number') {
@@ -355,9 +325,8 @@ export default function DetailedReports({
                 } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
                     foundValue = parseFloat(cellValue);
                 }
-             }
+            }
         }
-        
         prestador.valorPorContrato = foundValue;
     }
 
@@ -547,6 +516,7 @@ export default function DetailedReports({
                                   <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>
                                   <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                   <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
+                                  <p><strong>Población:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
                                   
                                   <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
                                   <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
