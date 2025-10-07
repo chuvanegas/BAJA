@@ -16,6 +16,7 @@ export type AfProviderData = {
   departamento?: string;
   municipio?: string;
   valorPorContrato?: number;
+  poblacion?: number;
 };
 
 export type GlobalAfSummary = Record<string, AfProviderData>;
@@ -55,11 +56,13 @@ export type Coincidence = {
     tipoSer: string;
     coincidences: Record<string, number>;
     total: number;
+    fu?: number;
 }
 
 export type CoincidenceReport = {
     prestadores: GlobalAfSummary;
     data: Coincidence[];
+    poblacionTotal: number;
 }
 
 export type UserActivity = {

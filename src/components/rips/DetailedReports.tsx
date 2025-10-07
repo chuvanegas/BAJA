@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow } from "@/lib/types";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData } from "@/lib/types";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
@@ -93,6 +93,7 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
+                // Using header: 1 to get array of arrays
                 const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, { header: 1 });
                 setData(jsonData);
                 resolve();
@@ -109,19 +110,31 @@ export default function DetailedReports({
         reader.readAsBinaryString(file);
     });
   }
-
+  
   const handleGenericFileChange = (
       event: React.ChangeEvent<HTMLInputElement>,
       setFile: (file: File | null) => void,
-      setData: (data: GenericRow[]) => void
+      setData: (data: GenericRow[]) => void,
+      isCups: boolean = false,
     ) => {
         const file = event.target.files?.[0];
         if (file) {
             setFile(file);
-            setData([]); // Reset previous data
-            toast({
-              title: "Archivo seleccionado",
-              description: `Se ha seleccionado: ${file.name}. Se procesará al generar el reporte.`,
+            setData([]); // Reset previous data on new file selection
+            setIsProcessing(true);
+            const promise = isCups ? processCupsFile(file) : processEnrichmentFile(file, setData);
+            promise.then(() => {
+              toast({
+                title: "Archivo procesado",
+                description: `${file.name} ha sido cargado y procesado.`,
+              });
+            }).catch(() => {
+              toast({
+                title: `Error al procesar ${file.name}`,
+                variant: "destructive",
+              });
+            }).finally(() => {
+              setIsProcessing(false);
             });
         }
     };
@@ -142,84 +155,70 @@ export default function DetailedReports({
     toast({ title: "Archivos y datos limpiados" });
   }
 
-  const handleProcessFiles = async () => {
-    if (!cupsFile) {
-        toast({ title: "Falta archivo de mapeo", description: "Por favor, cargue el archivo de mapeo CUPS.", variant: "destructive" });
-        return;
-    }
-
-    setIsProcessing(true);
-
-    const fileProcessingPromises: Promise<any>[] = [];
-
-    // Process enrichment files
-    if (asisteFile && asisteData.length === 0) {
-        fileProcessingPromises.push(processEnrichmentFile(asisteFile, setAsisteData));
-    }
-    if (especialidadesFile && especialidadesData.length === 0) {
-        fileProcessingPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
-    }
-    
-    // Process main CUPS file
-    const cupsProcessingPromise = new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = e.target?.result;
-          let jsonData: CupsDataRow[] = [];
-          if (cupsFile.name.endsWith('.xlsx') || cupsFile.name.endsWith('.csv') || cupsFile.name.endsWith('.txt')) {
-            const workbook = cupsFile.name.endsWith('.xlsx') ? XLSX.read(data, { type: 'binary' }) : XLSX.read(data, { type: 'string' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
-          } else if (cupsFile.name.endsWith('.xml')) {
-              const text = data as string;
-              const parser = new DOMParser();
-              const xmlDoc = parser.parseFromString(text, "application/xml");
-              const rows = Array.from(xmlDoc.getElementsByTagName('row'));
-              if (rows.length > 0) {
-                const headers = Array.from(rows[0].children).map(child => child.tagName);
-                jsonData = rows.map(row => {
-                  const rowData: any = {};
-                  Array.from(row.children).forEach((child, index) => { rowData[headers[index]] = child.textContent; });
-                  return rowData as CupsDataRow;
-                });
-              }
+ const processCupsFile = (file: File) => {
+    return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
+                setCupsData(jsonData);
+                resolve();
+            } catch (error) {
+                console.error("Error processing CUPS file:", error);
+                reject(error);
             }
-            setCupsData(jsonData);
-            resolve();
-        } catch (error) {
-            console.error("Error processing CUPS file:", error);
-            toast({ title: "Error al procesar archivo de mapeo", variant: "destructive" });
-            reject(error);
-        }
-      };
-      reader.onerror = (error) => {
-          toast({ title: "Error de lectura en archivo de mapeo.", variant: "destructive" });
-          reject(error);
-      }
-      if (cupsFile.name.endsWith('.xlsx')) reader.readAsBinaryString(cupsFile);
-      else reader.readAsText(cupsFile);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsBinaryString(file);
     });
+};
 
-    fileProcessingPromises.push(cupsProcessingPromise);
-
-    try {
-        await Promise.all(fileProcessingPromises);
-        toast({
-          title: "Procesamiento completo",
-          description: `Se procesaron los archivos cargados. Ahora puede generar el reporte.`,
-        });
-    } catch(e) {
-        toast({
-          title: "Procesamiento fallido",
-          description: `Uno o más archivos no pudieron ser procesados.`,
-          variant: "destructive"
-        })
-    } finally {
-        setIsProcessing(false);
+  const getColumnIndex = (headerRow: string[], possibleNames: string[]): number => {
+    if (!headerRow) return -1;
+    for (const name of possibleNames) {
+        const index = headerRow.findIndex(cell => typeof cell === 'string' && cell.toLowerCase().trim() === name.toLowerCase());
+        if (index !== -1) return index;
     }
+    return -1;
   };
+
+  const asisteMapByContrato = useMemo(() => {
+    if (asisteData.length < 2) return new Map();
+    const header = asisteData[0];
+    const contractColIndex = getColumnIndex(header, ["numero de contratos 2025", "numero de contrato 2025", "contrato"]);
+    if (contractColIndex === -1) return new Map();
+
+    const map = new Map<string, any[]>();
+    for (let i = 1; i < asisteData.length; i++) {
+        const row = asisteData[i];
+        const contractId = row[contractColIndex]?.toString().trim();
+        if (contractId) {
+            map.set(contractId, row);
+        }
+    }
+    return map;
+  }, [asisteData]);
+  
+  const especialidadesMapByContrato = useMemo(() => {
+    if (especialidadesData.length < 2) return new Map();
+    const header = especialidadesData[0];
+    const contractColIndex = getColumnIndex(header, ["numero de contratos 2025", "numero de contrato 2025", "contrato"]);
+    if (contractColIndex === -1) return new Map();
+    
+    const map = new Map<string, any[]>();
+    for (let i = 1; i < especialidadesData.length; i++) {
+        const row = especialidadesData[i];
+        const contractId = row[contractColIndex]?.toString().trim();
+        if (contractId) {
+            map.set(contractId, row);
+        }
+    }
+    return map;
+  }, [especialidadesData]);
 
   const handleGenerateCoincidenceReport = async () => {
     if (cupsData.length === 0) {
@@ -236,59 +235,31 @@ export default function DetailedReports({
     }
 
     setIsProcessing(true);
-    // Ensure enrichment files are processed before generating the report
-    const enrichmentPromises = [];
-    if (asisteFile && asisteData.length === 0) {
-      enrichmentPromises.push(processEnrichmentFile(asisteFile, setAsisteData));
-    }
-    if (especialidadesFile && especialidadesData.length === 0) {
-      enrichmentPromises.push(processEnrichmentFile(especialidadesFile, setEspecialidadesData));
-    }
-    
-    try {
-      await Promise.all(enrichmentPromises);
-    } catch (e) {
-        setIsProcessing(false);
-        toast({ title: "Error", description: "No se pudieron procesar las plantillas de enriquecimiento.", variant: "destructive" });
-        return;
-    }
 
-
-    // Create a deep copy to avoid mutating the original globalAf state
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
-    // Column letters to index (0-based)
-    const colToIndex = (col: string): number => {
-        let index = 0;
-        for (let i = 0; i < col.length; i++) {
-            index = index * 26 + (col.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
-        }
-        return index - 1;
-    };
+    const colToIndex = (col: string): number => col.toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
     
-    const findColumnIndex = (headerRow: any[], possibleNames: string[]): number => {
-        if (!headerRow) return -1;
-        for (const name of possibleNames) {
-            const index = headerRow.findIndex(cell => typeof cell === 'string' && cell.toLowerCase().trim() === name.toLowerCase());
-            if (index !== -1) return index;
-        }
-        return -1;
-    };
+    const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
+    const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
+    const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
 
+    const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
+    const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
+    const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
+    
     const asisteContractCol = colToIndex('G');
     const especialidadesContractCol = colToIndex('E');
 
-    const asisteDeptoCol = colToIndex('C');
-    const asisteMunCol = colToIndex('D');
+    const espPobSubCol = colToIndex('I');
+    const espPobContCol = colToIndex('J');
+    const asistePobSubCol = colToIndex('J');
+    const asistePobContCol = colToIndex('K');
 
-    const espDeptoCol = colToIndex('B');
-    const espMunCol = colToIndex('C');
-
-    const especialidadesSubsidiadoIndex = colToIndex('Y');
-    const especialidadesContributivoIndex = colToIndex('Z');
-    const asisteSubsidiadoIndex = colToIndex('AW');
-    const asisteContributivoIndex = colToIndex('AV');
-
+    const asisteValSubCol = colToIndex('AW');
+    const asisteValContCol = colToIndex('AV');
+    const espValSubCol = colToIndex('Y');
+    const espValContCol = colToIndex('Z');
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -297,45 +268,44 @@ export default function DetailedReports({
         
         if (!contratoKey) continue;
         
-        let foundValue: number | undefined = undefined;
-        
-        let asisteRow = asisteData.find(row => row[asisteContractCol] === contratoKey);
-        
-        if(asisteRow) {
-            prestador.departamento = asisteRow[asisteDeptoCol];
-            prestador.municipio = asisteRow[asisteMunCol];
-
-            const valIndex = regimen === 'SUBSIDIADO' ? asisteSubsidiadoIndex : asisteContributivoIndex;
-            const cellValue = asisteRow[valIndex];
-            if (cellValue !== undefined && typeof cellValue === 'number') {
-                foundValue = cellValue;
-            } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
-                foundValue = parseFloat(cellValue);
-            }
-        } else {
-            let especialidadesRow = especialidadesData.find(row => row[especialidadesContractCol] === contratoKey);
-            if(especialidadesRow) {
-                prestador.departamento = especialidadesRow[espDeptoCol];
-                prestador.municipio = especialidadesRow[espMunCol];
-
-                const valIndex = regimen === 'SUBSIDIADO' ? especialidadesSubsidiadoIndex : especialidadesContributivoIndex;
-                const cellValue = especialidadesRow[valIndex];
-                if (cellValue !== undefined && typeof cellValue === 'number') {
-                    foundValue = cellValue;
-                } else if (typeof cellValue === 'string' && !isNaN(parseFloat(cellValue))) {
-                    foundValue = parseFloat(cellValue);
-                }
+        let found = false;
+        if(asisteMapByContrato.has(contratoKey)){
+            const rowData = asisteMapByContrato.get(contratoKey);
+            if(rowData){
+                prestador.departamento = asisteDeptoCol !== -1 ? rowData[asisteDeptoCol] : 'N/A';
+                prestador.municipio = asisteMunCol !== -1 ? rowData[asisteMunCol] : 'N/A';
+                
+                const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
+                const cellValue = rowData[valIndex];
+                prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                
+                const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
+                const pobValue = rowData[pobIndex];
+                prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                
+                found = true;
             }
         }
-        prestador.valorPorContrato = foundValue;
+        
+        if (!found && especialidadesMapByContrato.has(contratoKey)) {
+            const rowData = especialidadesMapByContrato.get(contratoKey);
+             if(rowData){
+                prestador.departamento = espDeptoCol !== -1 ? rowData[espDeptoCol] : 'N/A';
+                prestador.municipio = espMunCol !== -1 ? rowData[espMunCol] : 'N/A';
+                
+                const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
+                const cellValue = rowData[valIndex];
+                prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                
+                const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
+                const pobValue = rowData[pobIndex];
+                prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+            }
+        }
     }
-
-
-    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
-    let globalCoincidences: Coincidence[] = [];
-
+    
+    // User data processing
     const allRipsBlocks: Record<string, string[]> = {};
-
     for (const content of Object.values(ripsFileContents)) {
         const blocks = parseRIPS(content);
         for (const segment in blocks) {
@@ -344,9 +314,41 @@ export default function DetailedReports({
         }
     }
     
+    const usersMap = new Map<string, Pick<UserData, 'edad' | 'unidadMedidaEdad' | 'sexo'>>();
+    if (allRipsBlocks['US']) {
+      allRipsBlocks['US'].forEach(line => {
+        const cols = line.split(',');
+        if (cols.length > 10) {
+          const numDoc = cols[1];
+          if (numDoc && !usersMap.has(numDoc)) {
+            usersMap.set(numDoc, {
+              edad: parseInt(cols[8], 10),
+              unidadMedidaEdad: cols[9],
+              sexo: cols[10]
+            });
+          }
+        }
+      });
+    }
+
+    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
+    let globalCoincidences: Coincidence[] = [];
+
+    const specialCupsFemale = ['890250', '890350'];
+    const specialCupsAge = ['890283', '890483', '890383'];
+    const specialCupsAdult = ['890266', '890366'];
+
+    const activityPositions: { [key: string]: { user: number, code: number } } = {
+        'AC': { user: 2, code: 6 },
+        'AP': { user: 3, code: 7 },
+        'AU': { user: 2, code: 6 },
+        'AH': { user: 2, code: 8 },
+        'AN': { user: 2, code: 6 },
+        'AT': { user: 2, code: 6 }
+    };
+    
     cupsData.forEach(cupsRow => {
-        const codeToSearch = cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'];
-        const vigenteCodeToSearch = cupsRow['CUPS VIGENTE'];
+        const codeToSearch = (cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'])?.toString();
         if (!codeToSearch) return;
 
         const coincidence: Coincidence = {
@@ -358,24 +360,47 @@ export default function DetailedReports({
             total: 0
         };
 
+        const isSpecialFemale = specialCupsFemale.includes(codeToSearch);
+        const isSpecialAge = specialCupsAge.includes(codeToSearch);
+        const isSpecialAdult = specialCupsAdult.includes(codeToSearch);
+
         segmentsToSearch.forEach(seg => {
             const segmentLines = allRipsBlocks[seg] || [];
             let count = 0;
-            const codePosition = { 'AC': 6, 'AP': 7, 'AU': 6, 'AH': 8, 'AN': 6, 'AT': 6 };
-            const pos = codePosition[seg as keyof typeof codePosition];
+            const posInfo = activityPositions[seg];
 
-            if (pos !== undefined) {
+            if (posInfo) {
                  count = segmentLines.reduce((acc, line) => {
                     const cols = line.split(',');
-                    if (cols[pos] === codeToSearch.toString() || (vigenteCodeToSearch && cols[pos] === vigenteCodeToSearch.toString())) {
-                        return acc + 1;
+                    const lineCode = cols[posInfo.code];
+                    const userId = cols[posInfo.user];
+
+                    if (lineCode === codeToSearch) {
+                        const user = usersMap.get(userId);
+                        if (!user || isNaN(user.edad)) return acc;
+
+                        if (isSpecialFemale) {
+                            if (user.sexo === 'F' && user.unidadMedidaEdad === '1' && user.edad >= 14 && user.edad <= 59) {
+                                return acc + 1;
+                            }
+                        } else if (isSpecialAge) {
+                            if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaedad === '1' && user.edad < 18)) {
+                                return acc + 1;
+                            }
+                        } else if (isSpecialAdult) {
+                            if (user.unidadMedidaEdad === '1' && user.edad >= 18) {
+                                return acc + 1;
+                            }
+                        }
+                        else {
+                           return acc + 1;
+                        }
                     }
                     return acc;
                 }, 0);
             } else if(seg === 'US') {
-                count = segmentLines.reduce((acc, line) => {
-                     return acc + (line.includes(`,${codeToSearch},`) || (vigenteCodeToSearch && line.includes(`,${vigenteCodeToSearch},`)) ? 1 : 0);
-                }, 0);
+                // US logic might need refinement if filters apply
+                count = segmentLines.reduce((acc, line) => acc + (line.includes(`,${codeToSearch},`) ? 1 : 0), 0);
             }
 
             coincidence.coincidences[seg] = count;
@@ -385,14 +410,24 @@ export default function DetailedReports({
         globalCoincidences.push(coincidence);
     });
     
+    const poblacionTotal = usersMap.size;
+    globalCoincidences.forEach(c => {
+        c.fu = poblacionTotal > 0 ? c.total / poblacionTotal : 0;
+    });
+
     setIsProcessing(false);
-    setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences });
+    setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences, poblacionTotal });
      toast({ title: "Reporte de coincidencias generado." });
   }
 
   const formatCurrency = (value?: number) => {
     if(value === undefined || value === null || isNaN(value)) return 'N/A';
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+  };
+  
+  const formatNumber = (value?: number) => {
+    if(value === undefined || value === null || isNaN(value)) return 'N/A';
+    return new Intl.NumberFormat('es-CO').format(value);
   };
 
   return (
@@ -412,9 +447,10 @@ export default function DetailedReports({
                 description="Archivo principal para cruzar los códigos CUPS con los RIPS."
                 file={cupsFile}
                 inputRef={cupsInputRef}
-                onFileChange={(e) => handleGenericFileChange(e, setCupsFile, () => {})}
+                onFileChange={(e) => handleGenericFileChange(e, setCupsFile, setCupsData, true)}
                 onClean={() => {
                   setCupsFile(null);
+                  setCupsData([]);
                   if(cupsInputRef.current) cupsInputRef.current.value = "";
                 }}
               />
@@ -453,10 +489,6 @@ export default function DetailedReports({
               </Card>
 
               <div className="flex items-center justify-center gap-4">
-                <Button onClick={handleProcessFiles} disabled={isProcessing || !cupsFile} size="lg">
-                    {isProcessing ? <Cog className="animate-spin" /> : <Cog />}
-                    Procesar Archivos Cargados
-                </Button>
                 <Button variant="outline" onClick={handleClean}> <Trash2 /> Limpiar Todo </Button>
               </div>
 
@@ -473,7 +505,7 @@ export default function DetailedReports({
                   <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
                       <CheckCircle className="w-6 h-6 text-green-600" />
                       <div>
-                          <p className="font-semibold text-green-700 dark:text-green-400">¡Archivos procesados!</p>
+                          <p className="font-semibold text-green-700 dark:text-green-400">¡Archivos listos!</p>
                           <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros de mapeo. Ahora puede generar el reporte.</p>
                       </div>
                   </div>
@@ -514,6 +546,7 @@ export default function DetailedReports({
                                   <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio || 'No encontrado'}</span></p>
                                   <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
                                   <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>
+                                  <p><strong>Población por Contrato:</strong> <span className="font-bold text-primary">{formatNumber(prestador.poblacion)}</span></p>
                                   <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                   <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
                                   <p><strong>Población:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
@@ -550,6 +583,7 @@ export default function DetailedReports({
                                             <TableHead className="text-center">AU</TableHead>
                                             <TableHead className="text-center">US</TableHead>
                                             <TableHead className="text-center font-bold">Total</TableHead>
+                                            <TableHead className="text-center font-bold">FU</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -563,6 +597,7 @@ export default function DetailedReports({
                                                     <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
                                                 ))}
                                                 <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                                <TableCell className="text-center text-xs font-bold">{row.fu?.toFixed(4)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
