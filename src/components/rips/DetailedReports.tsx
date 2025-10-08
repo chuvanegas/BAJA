@@ -12,7 +12,7 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData } from "@/lib/types";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData } from "@/lib/types";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
@@ -219,6 +219,64 @@ export default function DetailedReports({
     return map;
   }, [especialidadesData]);
 
+  const getPoblacionParaFU = (
+    prestador: AfProviderData,
+    tipoSer: string,
+    ): number => {
+
+    const regimen = prestador.regimen?.toUpperCase();
+    const contratoKey = prestador.contrato?.trim();
+    if (!contratoKey || !regimen || !tipoSer) return prestador.poblacion || 0;
+    
+    const tipoSerLower = tipoSer.toLowerCase();
+    
+    // Check in Especialidades first
+    if (especialidadesMapByContrato.has(contratoKey)) {
+        const rowData = especialidadesMapByContrato.get(contratoKey);
+        if(!rowData) return prestador.poblacion || 0;
+        
+        const header = especialidadesData[0];
+        let colIndex = -1;
+
+        if (tipoSerLower.includes('pediatrica')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+        } else if (tipoSerLower.includes('gineco')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+        } else if (tipoSerLower.includes('medicina interna')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+        }
+
+        if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
+    }
+    
+    // Check in Asiste-EspeB
+    if (asisteMapByContrato.has(contratoKey)) {
+        const rowData = asisteMapByContrato.get(contratoKey);
+        if(!rowData) return prestador.poblacion || 0;
+
+        const header = asisteData[0];
+        let colIndex = -1;
+
+        if (tipoSerLower.includes('pediatrica')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+        } else if (tipoSerLower.includes('gineco')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+        } else if (tipoSerLower.includes('medicina interna')) {
+             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+        } else if (tipoSerLower.includes('odontologia')) {
+            // Only subsidiado specified in prompt for odontologia
+            if (regimen === 'SUBSIDIADO') {
+                colIndex = getColumnIndex(header, ['poblacion sub odontologia 2024']);
+            }
+        }
+
+        if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
+    }
+
+    // Fallback to the general population for the contract
+    return prestador.poblacion || 0;
+  };
+
 
   const handleGenerateCoincidenceReport = async () => {
     if (cupsData.length === 0) {
@@ -276,7 +334,7 @@ export default function DetailedReports({
                   prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? 9 : 10; // J : K
+                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic']) : getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic']);
                 if(pobIndex !== -1) {
                   const pobValue = rowData[pobIndex];
                   prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -298,7 +356,7 @@ export default function DetailedReports({
                     prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? 8 : 9; // I : J
+                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(especialidadesHeader, ['poblacion subsidiada']) : getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
                  if(pobIndex !== -1) {
                     const pobValue = rowData[pobIndex];
                     prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -346,6 +404,8 @@ export default function DetailedReports({
         'AT': { user: 2, code: 6 }
     };
     
+    const mainPrestador = Object.values(enrichedGlobalAf)[0];
+    
     cupsData.forEach(cupsRow => {
         const codeToSearch = (cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'])?.toString();
         if (!codeToSearch) return;
@@ -380,14 +440,15 @@ export default function DetailedReports({
             coincidence.coincidences[seg] = count;
             coincidence.total += count;
         });
+        
+        const poblacionParaFU = mainPrestador ? getPoblacionParaFU(mainPrestador, coincidence.tipoSer) : 0;
+        coincidence.fu = poblacionParaFU > 0 ? coincidence.total / poblacionParaFU : 0;
+        coincidence.poblacionParaFU = poblacionParaFU;
 
         globalCoincidences.push(coincidence);
     });
     
     const poblacionTotal = usersMap.size;
-    globalCoincidences.forEach(c => {
-        c.fu = poblacionTotal > 0 ? c.total / poblacionTotal : 0;
-    });
 
     setIsProcessing(false);
     setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences, poblacionTotal });
@@ -557,6 +618,7 @@ export default function DetailedReports({
                                             <TableHead className="text-center">AU</TableHead>
                                             <TableHead className="text-center">US</TableHead>
                                             <TableHead className="text-center font-bold">Total</TableHead>
+                                            <TableHead className="text-center font-bold">Pob. FU</TableHead>
                                             <TableHead className="text-center font-bold">FU</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -571,6 +633,7 @@ export default function DetailedReports({
                                                     <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
                                                 ))}
                                                 <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                                <TableCell className="text-center text-xs font-bold">{formatNumber(row.poblacionParaFU)}</TableCell>
                                                 <TableCell className="text-center text-xs font-bold">{row.fu?.toFixed(4)}</TableCell>
                                             </TableRow>
                                         ))}
@@ -599,7 +662,3 @@ export default function DetailedReports({
     </Card>
   );
 }
-
-    
-
-    

@@ -57,6 +57,7 @@ export type Coincidence = {
     coincidences: Record<string, number>;
     total: number;
     fu?: number;
+    poblacionParaFU?: number;
 }
 
 export type CoincidenceReport = {

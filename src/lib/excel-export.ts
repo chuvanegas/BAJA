@@ -86,63 +86,83 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
 
     // --- STYLES ---
     const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "4F81BD" } }, alignment: { horizontal: "center", vertical: "center" } };
+    const titleStyle = { font: { bold: true, sz: 16 }, fill: { fgColor: { rgb: "2E75B5" } }, alignment: { horizontal: "center", vertical: "center" } };
     const labelStyle = { font: { bold: true } };
     const currencyFormat = '$#,##0';
     const numberFormat = '#,##0';
     const fuFormat = '0.0000';
 
     // --- HEADER ---
-    XLSX.utils.sheet_add_aoa(ws, [["Reporte de Coincidencias y Frecuencia de Uso"]], { origin: "A1" });
-    if(ws["A1"]) {
-        ws["A1"].s = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2E75B5" } }, alignment: { horizontal: "center", vertical: "center" } };
-    }
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }]; // Merge A1 to H1
+    let currentRow = 0;
+    XLSX.utils.sheet_add_aoa(ws, [["Reporte de Coincidencias y Frecuencia de Uso"]], { origin: `A${currentRow + 1}` });
+    ws[`A${currentRow + 1}`].s = titleStyle;
+    ws['!merges'] = [{ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 13 } }];
+    currentRow += 2;
 
     // --- PRESTADOR INFO ---
-    const prestadorData = prestador ? [
-        ["Nombre Prestador:", prestador.nombrePrestador, "NIT:", prestador.NI],
-        ["Departamento:", prestador.departamento, "Municipio:", prestador.municipio],
-        ["Número de contrato:", prestador.contrato, "Tipo de servicio:", prestador.tipoServicio],
-        ["Valor por Contrato:", prestador.valorPorContrato, "Régimen:", prestador.regimen],
-        ["Población por Contrato:", prestador.poblacion, "Población Total (RIPS):", report.poblacionTotal],
-    ] : [["No se encontró información del prestador."]];
-
-    XLSX.utils.sheet_add_aoa(ws, prestadorData, { origin: "A3" });
-    
     if (prestador) {
-        for (let r = 2; r < 7; r++) { // Iterate through rows 3 to 7
-            if (ws[`A${r + 1}`]) ws[`A${r + 1}`].s = labelStyle; // A3, A4, A5, A6, A7
-            if (ws[`C${r + 1}`]) ws[`C${r + 1}`].s = labelStyle; // C3, C4, C5, C6, C7
-        }
+        const prestadorData = [
+            ["Nombre Prestador:", prestador.nombrePrestador, "", "NIT:", prestador.NI],
+            ["Departamento:", prestador.departamento, "", "Municipio:", prestador.municipio],
+            ["Número de contrato:", prestador.contrato, "", "Tipo de servicio:", prestador.tipoServicio],
+            ["Valor por Contrato:", prestador.valorPorContrato, "", "Régimen:", prestador.regimen],
+            ["Población por Contrato:", prestador.poblacion, "", "Población Total (RIPS):", report.poblacionTotal],
+        ];
+
+        XLSX.utils.sheet_add_aoa(ws, prestadorData, { origin: `A${currentRow + 1}` });
+        
+        prestadorData.forEach((_, r) => {
+            const rowIndex = currentRow + r + 1;
+            if (ws[`A${rowIndex}`]) ws[`A${rowIndex}`].s = labelStyle;
+            if (ws[`D${rowIndex}`]) ws[`D${rowIndex}`].s = labelStyle;
+        });
+
         // Format specific cells
-        if (ws['B6']) { ws['B6'].t = 'n'; ws['B6'].z = currencyFormat; }
-        if (ws['B7']) { ws['B7'].t = 'n'; ws['B7'].z = numberFormat; }
-        if (ws['D7']) { ws['D7'].t = 'n'; ws['D7'].z = numberFormat; }
+        const baseRow = currentRow + 1;
+        if (ws[`B${baseRow + 3}`]) { ws[`B${baseRow + 3}`].t = 'n'; ws[`B${baseRow + 3}`].z = currencyFormat; } // Valor por Contrato
+        if (ws[`B${baseRow + 4}`]) { ws[`B${baseRow + 4}`].t = 'n'; ws[`B${baseRow + 4}`].z = numberFormat; }   // Poblacion por Contrato
+        if (ws[`E${baseRow + 4}`]) { ws[`E${baseRow + 4}`].t = 'n'; ws[`E${baseRow + 4}`].z = numberFormat; }   // Poblacion Total (RIPS)
+
+        currentRow += prestadorData.length + 1;
     }
     
     // --- CUPS TABLE ---
-    const tableHeaders = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total", "FU"];
-    XLSX.utils.sheet_add_aoa(ws, [tableHeaders], { origin: "A9" });
+    const tableHeaders = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total", "Pob. FU", "FU"];
+    XLSX.utils.sheet_add_aoa(ws, [tableHeaders], { origin: `A${currentRow + 1}` });
 
     const dataToExport = report.data.map(row => {
         const coincidences = Object.values(row.coincidences);
-        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total, row.fu];
+        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total, row.poblacionParaFU, row.fu];
     });
 
-    XLSX.utils.sheet_add_aoa(ws, dataToExport, { origin: "A10" });
+    XLSX.utils.sheet_add_aoa(ws, dataToExport, { origin: `A${currentRow + 2}` });
     
     // --- Table Styles & Formatting ---
     tableHeaders.forEach((_h, i) => {
-        const cellRef = XLSX.utils.encode_cell({ r: 8, c: i });
+        const cellRef = XLSX.utils.encode_cell({ r: currentRow, c: i });
         if(ws[cellRef]) ws[cellRef].s = headerStyle;
     });
 
-    const fuColumn = tableHeaders.length - 1;
+    const totalColumnIndex = tableHeaders.length - 3;
+    const pobFuColumnIndex = tableHeaders.length - 2;
+    const fuColumnIndex = tableHeaders.length - 1;
+    
     dataToExport.forEach((_row, r) => {
-        const fuCellRef = XLSX.utils.encode_cell({ r: r + 9, c: fuColumn });
+        const rowIndex = currentRow + r + 2;
+
+        const totalCellRef = XLSX.utils.encode_cell({ r: rowIndex -1, c: totalColumnIndex });
+        if(ws[totalCellRef] && typeof ws[totalCellRef].v === 'number') {
+            ws[totalCellRef].z = numberFormat; ws[totalCellRef].t = 'n';
+        }
+
+        const pobFuCellRef = XLSX.utils.encode_cell({ r: rowIndex -1, c: pobFuColumnIndex });
+        if(ws[pobFuCellRef] && typeof ws[pobFuCellRef].v === 'number') {
+            ws[pobFuCellRef].z = numberFormat; ws[pobFuCellRef].t = 'n';
+        }
+        
+        const fuCellRef = XLSX.utils.encode_cell({ r: rowIndex - 1, c: fuColumnIndex });
         if(ws[fuCellRef] && typeof ws[fuCellRef].v === 'number') {
-            ws[fuCellRef].z = fuFormat;
-            ws[fuCellRef].t = 'n';
+            ws[fuCellRef].z = fuFormat; ws[fuCellRef].t = 'n';
         }
     });
     
@@ -154,6 +174,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         { wch: 25 }, // Tipo Ser
         ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
         { wch: 10 },  // Total
+        { wch: 10 },  // Pob. FU
         { wch: 12 }   // FU
     ];
 
