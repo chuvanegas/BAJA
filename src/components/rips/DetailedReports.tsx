@@ -242,10 +242,6 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? 12 : 13; // M, N
         } else if (tipoSerLower.includes('medicina interna')) {
             colIndex = regimen === 'SUBSIDIADO' ? 14 : 15; // O, P
-        } else if (tipoSerLower.includes('nutricion')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
-        } else if (tipoSerLower.includes('psicologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion psicologia sub']) : getColumnIndex(header, ['poblacion psicologia contri']);
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
@@ -272,10 +268,6 @@ export default function DetailedReports({
             if (regimen === 'SUBSIDIADO') {
                 colIndex = 17; // R
             }
-        } else if (tipoSerLower.includes('nutricion')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
-        } else if (tipoSerLower.includes('psicologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion psicologia sub']) : getColumnIndex(header, ['poblacion psicologia contri']);
         } else if (tipoSerLower.includes('medicina general')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina general sub']) : getColumnIndex(header, ['poblacion medicina general contri']);
         } else if (tipoSerLower.includes('enfermeria')) {
@@ -314,17 +306,16 @@ export default function DetailedReports({
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva']);
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
+
 
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
-    
     const espPobSubCol = 8; // Column I 
     const espPobContCol = 9; // Column J
-    const asistePobSubCol = 9; // Column J
-    const asistePobContCol = 10; // Column K
-
-    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
     const espValSubCol = 24; // Column Y
     const espValContCol = 25; // Column Z
 
@@ -351,7 +342,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
-                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
                   if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
                 
@@ -375,7 +366,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
                  if(pobIndex !== -1 && rowData[pobIndex]) {
                     const pobValue = rowData[pobIndex];
-                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
                     if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
             }
