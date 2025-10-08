@@ -224,9 +224,11 @@ export default function DetailedReports({
     tipoSer: string,
     ): number => {
 
+    if (!tipoSer) return prestador.poblacion || 0;
+    
     const regimen = prestador.regimen?.toUpperCase();
     const contratoKey = prestador.contrato?.trim();
-    if (!contratoKey || !regimen || !tipoSer) return prestador.poblacion || 0;
+    if (!contratoKey || !regimen) return prestador.poblacion || 0;
     
     const tipoSerLower = tipoSer.toLowerCase();
     
@@ -250,7 +252,10 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion psicologia sub']) : getColumnIndex(header, ['poblacion psicologia contri']);
         }
 
-        if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
+        if (colIndex !== -1 && rowData[colIndex]) {
+            const val = parseInt(rowData[colIndex], 10);
+            if (!isNaN(val)) return val;
+        }
     }
     
     // Check in Asiste-EspeB
@@ -281,7 +286,10 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion enfermeria sub']) : getColumnIndex(header, ['poblacion enfermeria contri']);
         }
 
-        if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
+        if (colIndex !== -1 && rowData[colIndex]) {
+            const val = parseInt(rowData[colIndex], 10);
+            if (!isNaN(val)) return val;
+        }
     }
 
     // Fallback to the general population for the contract
@@ -317,8 +325,8 @@ export default function DetailedReports({
     
     const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
     const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic', 'pb s']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic', 'pb contr']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic', 'pb s', 'poblacion sub']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic', 'pb contr', 'poblacion contr']);
     
     const asisteValSubCol = getColumnIndex(asisteHeader, ['valor subsidiado']);
     const asisteValContCol = getColumnIndex(asisteHeader, ['valor contributivo']);
@@ -342,13 +350,15 @@ export default function DetailedReports({
                 const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
                 if(valIndex !== -1) {
                   const cellValue = rowData[valIndex];
-                  prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                  const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                  if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1) {
                   const pobValue = rowData[pobIndex];
-                  prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                  if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
                 
                 found = true;
@@ -364,13 +374,15 @@ export default function DetailedReports({
                 const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
                 if(valIndex !== -1) {
                     const cellValue = rowData[valIndex];
-                    prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                    const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                    if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
                  if(pobIndex !== -1) {
                     const pobValue = rowData[pobIndex];
-                    prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                    if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
             }
         }
