@@ -244,6 +244,10 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
         } else if (tipoSerLower.includes('medicina interna')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+        } else if (tipoSerLower.includes('nutricion')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
+        } else if (tipoSerLower.includes('psicologia')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion psicologia sub']) : getColumnIndex(header, ['poblacion psicologia contri']);
         }
 
         if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
@@ -264,10 +268,17 @@ export default function DetailedReports({
         } else if (tipoSerLower.includes('medicina interna')) {
              colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
         } else if (tipoSerLower.includes('odontologia')) {
-            // Only subsidiado specified in prompt for odontologia
             if (regimen === 'SUBSIDIADO') {
                 colIndex = getColumnIndex(header, ['poblacion sub odontologia 2024']);
             }
+        } else if (tipoSerLower.includes('nutricion')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
+        } else if (tipoSerLower.includes('psicologia')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion psicologia sub']) : getColumnIndex(header, ['poblacion psicologia contri']);
+        } else if (tipoSerLower.includes('medicina general')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina general sub']) : getColumnIndex(header, ['poblacion medicina general contri']);
+        } else if (tipoSerLower.includes('enfermeria')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion enfermeria sub']) : getColumnIndex(header, ['poblacion enfermeria contri']);
         }
 
         if (colIndex !== -1 && rowData[colIndex]) return parseInt(rowData[colIndex], 10) || 0;
