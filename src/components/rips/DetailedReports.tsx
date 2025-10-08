@@ -248,9 +248,6 @@ export default function DetailedReports({
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
     
-    const asisteContractCol = colToIndex('G');
-    const especialidadesContractCol = colToIndex('E');
-
     const espPobSubCol = colToIndex('I');
     const espPobContCol = colToIndex('J');
     const asistePobSubCol = colToIndex('J');
@@ -384,7 +381,7 @@ export default function DetailedReports({
                                 return acc + 1;
                             }
                         } else if (isSpecialAge) {
-                            if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaedad === '1' && user.edad < 18)) {
+                            if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaEdad === '1' && user.edad < 18)) {
                                 return acc + 1;
                             }
                         } else if (isSpecialAdult) {
@@ -625,3 +622,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
