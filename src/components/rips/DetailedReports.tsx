@@ -325,13 +325,13 @@ export default function DetailedReports({
     
     const espPobSubCol = 8; // Column I for 'poblacion subsidiada'
     const espPobContCol = 9; // Column J for 'poblacion contributiva'
-    const asistePobSubCol = 9; // Column J for 'pb s'
-    const asistePobContCol = 10; // Column K for 'pb contr'
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s']); // Column J for 'pb s'
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr']); // Column K for 'pb contr'
     
     // Exact columns from user for contract value
-    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']); // Column AW
-    const espValSubCol = 24; // Column Y (0-indexed)
-    const espValContCol = 25; // Column Z (0-indexed)
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
+    const espValSubCol = 24; // Column Y
+    const espValContCol = 25; // Column Z
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -349,7 +349,7 @@ export default function DetailedReports({
                 
                 if(asisteValContratoCol !== -1) {
                   const cellValue = rowData[asisteValContratoCol];
-                  const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                  const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(String(cellValue).replace(/[^0-9.-]+/g,""));
                   if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
@@ -373,7 +373,7 @@ export default function DetailedReports({
                 const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
                 if(valIndex !== -1 && rowData[valIndex]) {
                     const cellValue = rowData[valIndex];
-                    const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                    const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(String(cellValue).replace(/[^0-9.-]+/g,""));
                     if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
