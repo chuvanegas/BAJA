@@ -238,7 +238,7 @@ export default function DetailedReports({
         const header = especialidadesData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatria')) {
+        if (tipoSerLower.includes('pediatrica')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
         } else if (tipoSerLower.includes('ginecologia')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
@@ -257,7 +257,7 @@ export default function DetailedReports({
         const header = asisteData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatria')) {
+        if (tipoSerLower.includes('pediatrica')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
         } else if (tipoSerLower.includes('ginecologia')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
