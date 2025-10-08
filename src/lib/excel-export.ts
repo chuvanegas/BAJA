@@ -80,47 +80,63 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         return;
     }
 
-    const wb = XLSX.utils.book_new();
-    const headers = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total"];
+    let wsData: (string | number | undefined)[][] = [
+      ["Reporte de Coincidencias y Frecuencia de Uso"],
+      [],
+    ];
+    
+    const formatCurrency = (value?: number) => {
+      if(value === undefined || value === null || isNaN(value)) return 'N/A';
+      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+    };
+
+    // Add prestador details
+    Object.values(report.prestadores).forEach(prestador => {
+      wsData.push(["Nombre Prestador:", prestador.nombrePrestador, "NIT:", prestador.NI]);
+      wsData.push(["Departamento:", prestador.departamento]);
+      wsData.push(["Municipio:", prestador.municipio]);
+      wsData.push(["Número de contrato:", prestador.contrato]);
+      wsData.push(["Valor por Contrato:", prestador.valorPorContrato ? formatCurrency(prestador.valorPorContrato) : 'N/A']);
+      wsData.push(["Población por Contrato:", prestador.poblacion]);
+      wsData.push(["Tipo de servicio:", prestador.tipoServicio]);
+      wsData.push(["Régimen:", prestador.regimen]);
+      wsData.push([]); // Spacer
+    });
+    
+    wsData.push(["Población Total (Usuarios Únicos):", report.poblacionTotal]);
+    wsData.push([]); // Spacer
+
+    const headers = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total", "FU"];
+    wsData.push(headers);
     
     const dataToExport = report.data.map(row => {
         const coincidences = Object.values(row.coincidences);
-        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total];
-    });
-    
-    let wsData: (string | number | undefined)[][] = [
-      ["Reporte de Coincidencias CUPS"],
-      [],
-    ];
-
-    Object.values(report.prestadores).forEach(prestador => {
-      wsData.push(["Prestador:", prestador.nombrePrestador]);
-      wsData.push(["Nit:", prestador.NI]);
-      wsData.push(["Contrato:", prestador.contrato]);
-      wsData.push(["Departamento:", prestador.departamento]);
-      wsData.push(["Municipio:", prestador.municipio]);
-      wsData.push(["Valor Total:", prestador.valorTotal]);
-      wsData.push([]);
+        const fu = row.fu?.toFixed(4) ?? '0';
+        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total, fu];
     });
 
-    wsData.push(headers);
     wsData.push(...dataToExport);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     ws['!cols'] = [
-        { wch: 15 }, // CUPS
-        { wch: 15 }, // CUPS Vigente
-        { wch: 50 }, // Nombre CUPS
-        { wch: 25 }, // Tipo Ser
-        ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
-        { wch: 10 }  // Total
+        { wch: 20 }, // Label
+        { wch: 40 }, // Value
     ];
     
-    // Merge title cell
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
-
-
+    const tableStartIndex = wsData.findIndex(row => row[0] === 'CUPS');
+    if (tableStartIndex !== -1) {
+        ws['!cols'] = [
+            { wch: 15 }, // CUPS
+            { wch: 15 }, // CUPS Vigente
+            { wch: 50 }, // Nombre CUPS
+            { wch: 25 }, // Tipo Ser
+            ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
+            { wch: 10 },  // Total
+            { wch: 12 } // FU
+        ];
+    }
+    
     XLSX.utils.book_append_sheet(wb, ws, "Coincidencias_CUPS");
     XLSX.writeFile(wb, "Reporte_Coincidencias_CUPS.xlsx");
 }
