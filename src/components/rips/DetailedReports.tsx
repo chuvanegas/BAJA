@@ -220,11 +220,11 @@ export default function DetailedReports({
   }, [especialidadesData]);
 
   const getPoblacionParaFU = (
-    prestador: AfProviderData,
+    prestador: AfProviderData | undefined,
     tipoSer: string,
     ): number => {
 
-    if (!tipoSer) return prestador.poblacion || 0;
+    if (!prestador || !tipoSer) return prestador?.poblacion || 0;
     
     const regimen = prestador.regimen?.toUpperCase();
     const contratoKey = prestador.contrato?.trim();
@@ -325,10 +325,9 @@ export default function DetailedReports({
     
     const espPobSubCol = 8; // Column I for 'poblacion subsidiada'
     const espPobContCol = 9; // Column J for 'poblacion contributiva'
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s']); // Column J for 'pb s'
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr']); // Column K for 'pb contr'
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr']);
     
-    // Exact columns from user for contract value
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
     const espValSubCol = 24; // Column Y
     const espValContCol = 25; // Column Z
@@ -463,10 +462,9 @@ export default function DetailedReports({
             coincidence.total += count;
         });
         
-        const poblacionParaFU = mainPrestador ? getPoblacionParaFU(mainPrestador, coincidence.tipoSer) : 0;
+        const poblacionParaFU = getPoblacionParaFU(mainPrestador, coincidence.tipoSer);
         coincidence.fu = poblacionParaFU > 0 ? coincidence.total / poblacionParaFU : 0;
-        coincidence.poblacionParaFU = poblacionParaFU;
-
+        
         globalCoincidences.push(coincidence);
     });
     
