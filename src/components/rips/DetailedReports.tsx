@@ -219,11 +219,7 @@ export default function DetailedReports({
     return map;
   }, [especialidadesData]);
 
-  const getPoblacionParaFU = (
-    prestador: AfProviderData | undefined,
-    tipoSer: string,
-    ): number => {
-
+  const getPoblacionParaFU = (prestador: AfProviderData, tipoSer: string): number => {
     if (!prestador || !tipoSer) return prestador?.poblacion || 0;
     
     const regimen = prestador.regimen?.toUpperCase();
@@ -240,12 +236,12 @@ export default function DetailedReports({
         const header = especialidadesData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatrica')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+        if (tipoSerLower.includes('pediatria')) {
+            colIndex = regimen === 'SUBSIDIADO' ? 10 : 11; // K, L
         } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+            colIndex = regimen === 'SUBSIDIADO' ? 12 : 13; // M, N
         } else if (tipoSerLower.includes('medicina interna')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+            colIndex = regimen === 'SUBSIDIADO' ? 14 : 15; // O, P
         } else if (tipoSerLower.includes('nutricion')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
         } else if (tipoSerLower.includes('psicologia')) {
@@ -266,15 +262,15 @@ export default function DetailedReports({
         const header = asisteData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatrica')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+        if (tipoSerLower.includes('pediatria')) {
+            colIndex = regimen === 'SUBSIDIADO' ? 11 : 12; // L, M
         } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+            colIndex = regimen === 'SUBSIDIADO' ? 13 : 14; // N, O
         } else if (tipoSerLower.includes('medicina interna')) {
-             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+             colIndex = regimen === 'SUBSIDIADO' ? 15 : 16; // P, Q
         } else if (tipoSerLower.includes('odontologia')) {
             if (regimen === 'SUBSIDIADO') {
-                colIndex = getColumnIndex(header, ['poblacion sub odontologia 2024']);
+                colIndex = 17; // R
             }
         } else if (tipoSerLower.includes('nutricion')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion nutricion sub']) : getColumnIndex(header, ['poblacion nutricion contri']);
@@ -323,11 +319,11 @@ export default function DetailedReports({
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
     
-    const espPobSubCol = 8; // Column I for 'poblacion subsidiada'
-    const espPobContCol = 9; // Column J for 'poblacion contributiva'
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr']);
-    
+    const espPobSubCol = 8; // Column I 
+    const espPobContCol = 9; // Column J
+    const asistePobSubCol = 9; // Column J
+    const asistePobContCol = 10; // Column K
+
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
     const espValSubCol = 24; // Column Y
     const espValContCol = 25; // Column Z
