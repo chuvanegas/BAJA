@@ -325,13 +325,13 @@ export default function DetailedReports({
     
     const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
     const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic', 'pb s', 'poblacion sub']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic', 'pb contr', 'poblacion contr']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion sub']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contr']);
     
-    const asisteValSubCol = getColumnIndex(asisteHeader, ['valor subsidiado']);
-    const asisteValContCol = getColumnIndex(asisteHeader, ['valor contributivo']);
-    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
-    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
+    // Exact columns from user for contract value
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']); // Column AW
+    const espValSubCol = 24; // Column Y (0-indexed)
+    const espValContCol = 25; // Column Z (0-indexed)
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -347,9 +347,8 @@ export default function DetailedReports({
                 prestador.departamento = asisteDeptoCol !== -1 ? rowData[asisteDeptoCol] : 'N/A';
                 prestador.municipio = asisteMunCol !== -1 ? rowData[asisteMunCol] : 'N/A';
                 
-                const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
-                if(valIndex !== -1) {
-                  const cellValue = rowData[valIndex];
+                if(asisteValContratoCol !== -1) {
+                  const cellValue = rowData[asisteValContratoCol];
                   const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                   if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
