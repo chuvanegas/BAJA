@@ -238,9 +238,9 @@ export default function DetailedReports({
         const header = especialidadesData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatrica')) {
+        if (tipoSerLower.includes('pediatria')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
-        } else if (tipoSerLower.includes('gineco')) {
+        } else if (tipoSerLower.includes('ginecologia')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
         } else if (tipoSerLower.includes('medicina interna')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
@@ -257,9 +257,9 @@ export default function DetailedReports({
         const header = asisteData[0];
         let colIndex = -1;
 
-        if (tipoSerLower.includes('pediatrica')) {
+        if (tipoSerLower.includes('pediatria')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
-        } else if (tipoSerLower.includes('gineco')) {
+        } else if (tipoSerLower.includes('ginecologia')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
         } else if (tipoSerLower.includes('medicina interna')) {
              colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
@@ -618,7 +618,6 @@ export default function DetailedReports({
                                             <TableHead className="text-center">AU</TableHead>
                                             <TableHead className="text-center">US</TableHead>
                                             <TableHead className="text-center font-bold">Total</TableHead>
-                                            <TableHead className="text-center font-bold">Pob. FU</TableHead>
                                             <TableHead className="text-center font-bold">FU</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -633,7 +632,6 @@ export default function DetailedReports({
                                                     <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
                                                 ))}
                                                 <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
-                                                <TableCell className="text-center text-xs font-bold">{formatNumber(row.poblacionParaFU)}</TableCell>
                                                 <TableCell className="text-center text-xs font-bold">{row.fu?.toFixed(4)}</TableCell>
                                             </TableRow>
                                         ))}

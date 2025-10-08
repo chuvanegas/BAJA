@@ -127,12 +127,12 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
     }
     
     // --- CUPS TABLE ---
-    const tableHeaders = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total", "Pob. FU", "FU"];
+    const tableHeaders = ["CUPS", "CUPS Vigente", "Nombre CUPS", "Tipo Ser", ...Object.keys(report.data[0]?.coincidences || {}), "Total", "FU"];
     XLSX.utils.sheet_add_aoa(ws, [tableHeaders], { origin: `A${currentRow + 1}` });
 
     const dataToExport = report.data.map(row => {
         const coincidences = Object.values(row.coincidences);
-        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total, row.poblacionParaFU, row.fu];
+        return [row.cups, row.cupsVigente, row.nombre, row.tipoSer, ...coincidences, row.total, row.fu];
     });
 
     XLSX.utils.sheet_add_aoa(ws, dataToExport, { origin: `A${currentRow + 2}` });
@@ -143,8 +143,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         if(ws[cellRef]) ws[cellRef].s = headerStyle;
     });
 
-    const totalColumnIndex = tableHeaders.length - 3;
-    const pobFuColumnIndex = tableHeaders.length - 2;
+    const totalColumnIndex = tableHeaders.length - 2;
     const fuColumnIndex = tableHeaders.length - 1;
     
     dataToExport.forEach((_row, r) => {
@@ -153,11 +152,6 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         const totalCellRef = XLSX.utils.encode_cell({ r: rowIndex -1, c: totalColumnIndex });
         if(ws[totalCellRef] && typeof ws[totalCellRef].v === 'number') {
             ws[totalCellRef].z = numberFormat; ws[totalCellRef].t = 'n';
-        }
-
-        const pobFuCellRef = XLSX.utils.encode_cell({ r: rowIndex -1, c: pobFuColumnIndex });
-        if(ws[pobFuCellRef] && typeof ws[pobFuCellRef].v === 'number') {
-            ws[pobFuCellRef].z = numberFormat; ws[pobFuCellRef].t = 'n';
         }
         
         const fuCellRef = XLSX.utils.encode_cell({ r: rowIndex - 1, c: fuColumnIndex });
@@ -174,7 +168,6 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         { wch: 25 }, // Tipo Ser
         ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
         { wch: 10 },  // Total
-        { wch: 10 },  // Pob. FU
         { wch: 12 }   // FU
     ];
 
