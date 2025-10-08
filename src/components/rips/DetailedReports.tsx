@@ -93,7 +93,6 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                // Using header: 1 to get array of arrays
                 const jsonData = XLSX.utils.sheet_to_json<GenericRow>(worksheet, { header: 1 });
                 setData(jsonData);
                 resolve();
@@ -114,7 +113,7 @@ export default function DetailedReports({
   const handleGenericFileChange = (
       event: React.ChangeEvent<HTMLInputElement>,
       setFile: (file: File | null) => void,
-      setData: (data: GenericRow[]) => void,
+      setData: (data: any[]) => void,
       isCups: boolean = false,
     ) => {
         const file = event.target.files?.[0];
@@ -122,7 +121,7 @@ export default function DetailedReports({
             setFile(file);
             setData([]); // Reset previous data on new file selection
             setIsProcessing(true);
-            const promise = isCups ? processCupsFile(file) : processEnrichmentFile(file, setData);
+            const promise = isCups ? processCupsFile(file) : processEnrichmentFile(file, setData as (data: GenericRow[]) => void);
             promise.then(() => {
               toast({
                 title: "Archivo procesado",
@@ -185,7 +184,7 @@ export default function DetailedReports({
     }
     return -1;
   };
-
+  
   const asisteMapByContrato = useMemo(() => {
     if (asisteData.length < 2) return new Map();
     const header = asisteData[0];
@@ -219,6 +218,7 @@ export default function DetailedReports({
     }
     return map;
   }, [especialidadesData]);
+
 
   const handleGenerateCoincidenceReport = async () => {
     if (cupsData.length === 0) {
@@ -270,13 +270,13 @@ export default function DetailedReports({
                 prestador.departamento = asisteDeptoCol !== -1 ? rowData[asisteDeptoCol] : 'N/A';
                 prestador.municipio = asisteMunCol !== -1 ? rowData[asisteMunCol] : 'N/A';
                 
-                const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
+                const valIndex = regimen === 'SUBSIDIADO' ? 48 : 47; // AW : AV
                 if(valIndex !== -1) {
                   const cellValue = rowData[valIndex];
                   prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
+                const pobIndex = regimen === 'SUBSIDIADO' ? 9 : 10; // J : K
                 if(pobIndex !== -1) {
                   const pobValue = rowData[pobIndex];
                   prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -292,13 +292,13 @@ export default function DetailedReports({
                 prestador.departamento = espDeptoCol !== -1 ? rowData[espDeptoCol] : 'N/A';
                 prestador.municipio = espMunCol !== -1 ? rowData[espMunCol] : 'N/A';
                 
-                const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
+                const valIndex = regimen === 'SUBSIDIADO' ? 24 : 25; // Y : Z
                 if(valIndex !== -1) {
                     const cellValue = rowData[valIndex];
                     prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
+                const pobIndex = regimen === 'SUBSIDIADO' ? 8 : 9; // I : J
                  if(pobIndex !== -1) {
                     const pobValue = rowData[pobIndex];
                     prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -337,10 +337,6 @@ export default function DetailedReports({
     const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
     let globalCoincidences: Coincidence[] = [];
 
-    const specialCupsFemale = ['890250', '890350'];
-    const specialCupsAge = ['890283', '890483', '890383'];
-    const specialCupsAdult = ['890266', '890366'];
-
     const activityPositions: { [key: string]: { user: number, code: number } } = {
         'AC': { user: 2, code: 6 },
         'AP': { user: 3, code: 7 },
@@ -363,55 +359,21 @@ export default function DetailedReports({
             total: 0
         };
 
-        const isSpecialFemale = specialCupsFemale.includes(codeToSearch);
-        const isSpecialAge = specialCupsAge.includes(codeToSearch);
-        const isSpecialAdult = specialCupsAdult.includes(codeToSearch);
-
         segmentsToSearch.forEach(seg => {
             const segmentLines = allRipsBlocks[seg] || [];
             let count = 0;
             const posInfo = activityPositions[seg];
 
             if (posInfo) {
-                 count = segmentLines.reduce((acc, line) => {
+                count = segmentLines.reduce((acc, line) => {
                     const cols = line.split(',');
                     const lineCode = cols[posInfo.code];
-                    
-                    if (lineCode !== codeToSearch) {
-                        return acc;
+                    if (lineCode === codeToSearch) {
+                        return acc + 1;
                     }
-
-                    const userId = cols[posInfo.user];
-                    const user = usersMap.get(userId);
-
-                    if (!user || isNaN(user.edad)) {
-                        // If user data is incomplete, count only if no special filter applies
-                        if (!isSpecialFemale && !isSpecialAge && !isSpecialAdult) {
-                            return acc + 1;
-                        }
-                        return acc;
-                    }
-
-                    if (isSpecialFemale) {
-                        if (user.sexo === 'F' && user.unidadMedidaEdad === '1' && user.edad >= 14 && user.edad <= 59) {
-                            return acc + 1;
-                        }
-                    } else if (isSpecialAge) {
-                        if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaEdad === '1' && user.edad < 18)) {
-                            return acc + 1;
-                        }
-                    } else if (isSpecialAdult) {
-                        if (user.unidadMedidaEdad === '1' && user.edad >= 18) {
-                            return acc + 1;
-                        }
-                    } else {
-                       return acc + 1;
-                    }
-                    
                     return acc;
                 }, 0);
             } else if(seg === 'US') {
-                // US logic might need refinement if filters apply
                 count = segmentLines.reduce((acc, line) => acc + (line.includes(`,${codeToSearch},`) ? 1 : 0), 0);
             }
 
@@ -637,5 +599,7 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
 
     
