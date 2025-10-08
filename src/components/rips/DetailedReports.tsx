@@ -306,8 +306,8 @@ export default function DetailedReports({
     
     const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
     const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic', 'pb s']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic', 'pb contr']);
     
     const asisteValSubCol = getColumnIndex(asisteHeader, ['valor subsidiado']);
     const asisteValContCol = getColumnIndex(asisteHeader, ['valor contributivo']);
@@ -328,13 +328,13 @@ export default function DetailedReports({
                 prestador.departamento = asisteDeptoCol !== -1 ? rowData[asisteDeptoCol] : 'N/A';
                 prestador.municipio = asisteMunCol !== -1 ? rowData[asisteMunCol] : 'N/A';
                 
-                const valIndex = regimen === 'SUBSIDIADO' ? 48 : 47; // AW : AV
+                const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
                 if(valIndex !== -1) {
                   const cellValue = rowData[valIndex];
                   prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic']) : getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic']);
+                const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1) {
                   const pobValue = rowData[pobIndex];
                   prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -350,13 +350,13 @@ export default function DetailedReports({
                 prestador.departamento = espDeptoCol !== -1 ? rowData[espDeptoCol] : 'N/A';
                 prestador.municipio = espMunCol !== -1 ? rowData[espMunCol] : 'N/A';
                 
-                const valIndex = regimen === 'SUBSIDIADO' ? 24 : 25; // Y : Z
+                const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
                 if(valIndex !== -1) {
                     const cellValue = rowData[valIndex];
                     prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(especialidadesHeader, ['poblacion subsidiada']) : getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
+                const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
                  if(pobIndex !== -1) {
                     const pobValue = rowData[pobIndex];
                     prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
@@ -584,7 +584,6 @@ export default function DetailedReports({
                                   <p><strong>Población por Contrato:</strong> <span className="font-bold text-primary">{formatNumber(prestador.poblacion)}</span></p>
                                   <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
                                   <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
-                                  <p><strong>Población:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
                                   
                                   <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
                                   <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
