@@ -323,10 +323,10 @@ export default function DetailedReports({
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
     
-    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
-    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion sub']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contr']);
+    const espPobSubCol = 8; // Column I for 'poblacion subsidiada'
+    const espPobContCol = 9; // Column J for 'poblacion contributiva'
+    const asistePobSubCol = 9; // Column J for 'pb s'
+    const asistePobContCol = 10; // Column K for 'pb contr'
     
     // Exact columns from user for contract value
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']); // Column AW
@@ -354,7 +354,7 @@ export default function DetailedReports({
                 }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
-                if(pobIndex !== -1) {
+                if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
                   const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
                   if(!isNaN(numericValue)) prestador.poblacion = numericValue;
@@ -371,14 +371,14 @@ export default function DetailedReports({
                 prestador.municipio = espMunCol !== -1 ? rowData[espMunCol] : 'N/A';
                 
                 const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
-                if(valIndex !== -1) {
+                if(valIndex !== -1 && rowData[valIndex]) {
                     const cellValue = rowData[valIndex];
                     const numericValue = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
                     if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
-                 if(pobIndex !== -1) {
+                 if(pobIndex !== -1 && rowData[pobIndex]) {
                     const pobValue = rowData[pobIndex];
                     const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
                     if(!isNaN(numericValue)) prestador.poblacion = numericValue;
