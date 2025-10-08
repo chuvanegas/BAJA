@@ -82,7 +82,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
     
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([]);
-    const prestador = Object.values(report.prestadores)[0]; 
+    const prestador = Object.values(report.prestadores)[0];
 
     // --- STYLES ---
     const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "4F81BD" } }, alignment: { horizontal: "center", vertical: "center" } };
@@ -93,7 +93,9 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
 
     // --- HEADER ---
     XLSX.utils.sheet_add_aoa(ws, [["Reporte de Coincidencias y Frecuencia de Uso"]], { origin: "A1" });
-    if(ws["A1"]) ws["A1"].s = headerStyle;
+    if(ws["A1"]) {
+        ws["A1"].s = { font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2E75B5" } }, alignment: { horizontal: "center", vertical: "center" } };
+    }
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }]; // Merge A1 to H1
 
     // --- PRESTADOR INFO ---
@@ -108,12 +110,11 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
     XLSX.utils.sheet_add_aoa(ws, prestadorData, { origin: "A3" });
     
     if (prestador) {
-        for (let r = 2; r < 7; r++) {
-            if (ws[`A${r+1}`]) ws[`A${r+1}`].s = labelStyle;
-            if (ws[`C${r+1}`]) ws[`C${r+1}`].s = labelStyle;
-            if (ws[`E${r+1}`]) ws[`E${r+1}`].s = labelStyle;
-            if (ws[`G${r+1}`]) ws[`G${r+1}`].s = labelStyle;
+        for (let r = 2; r < 7; r++) { // Iterate through rows 3 to 7
+            if (ws[`A${r + 1}`]) ws[`A${r + 1}`].s = labelStyle; // A3, A4, A5, A6, A7
+            if (ws[`C${r + 1}`]) ws[`C${r + 1}`].s = labelStyle; // C3, C4, C5, C6, C7
         }
+        // Format specific cells
         if (ws['B6']) { ws['B6'].t = 'n'; ws['B6'].z = currencyFormat; }
         if (ws['B7']) { ws['B7'].t = 'n'; ws['B7'].z = numberFormat; }
         if (ws['D7']) { ws['D7'].t = 'n'; ws['D7'].z = numberFormat; }
