@@ -79,6 +79,8 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         console.error("No hay datos de coincidencia para exportar");
         return;
     }
+    
+    const wb = XLSX.utils.book_new();
 
     let wsData: (string | number | undefined)[][] = [
       ["Reporte de Coincidencias y Frecuencia de Uso"],
