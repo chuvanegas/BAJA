@@ -238,8 +238,6 @@ export default function DetailedReports({
 
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
     
-    const colToIndex = (col: string): number => col.toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
-    
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
@@ -248,15 +246,15 @@ export default function DetailedReports({
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
     
-    const espPobSubCol = colToIndex('I');
-    const espPobContCol = colToIndex('J');
-    const asistePobSubCol = colToIndex('J');
-    const asistePobContCol = colToIndex('K');
-
-    const asisteValSubCol = colToIndex('AW');
-    const asisteValContCol = colToIndex('AV');
-    const espValSubCol = colToIndex('Y');
-    const espValContCol = colToIndex('Z');
+    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
+    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb sub - para 2025 pb 30 dic']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb cnt - para 2025 pb 30 dic']);
+    
+    const asisteValSubCol = getColumnIndex(asisteHeader, ['valor subsidiado']);
+    const asisteValContCol = getColumnIndex(asisteHeader, ['valor contributivo']);
+    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
+    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -273,12 +271,16 @@ export default function DetailedReports({
                 prestador.municipio = asisteMunCol !== -1 ? rowData[asisteMunCol] : 'N/A';
                 
                 const valIndex = regimen === 'SUBSIDIADO' ? asisteValSubCol : asisteValContCol;
-                const cellValue = rowData[valIndex];
-                prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                if(valIndex !== -1) {
+                  const cellValue = rowData[valIndex];
+                  prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
-                const pobValue = rowData[pobIndex];
-                prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                if(pobIndex !== -1) {
+                  const pobValue = rowData[pobIndex];
+                  prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                }
                 
                 found = true;
             }
@@ -291,12 +293,16 @@ export default function DetailedReports({
                 prestador.municipio = espMunCol !== -1 ? rowData[espMunCol] : 'N/A';
                 
                 const valIndex = regimen === 'SUBSIDIADO' ? espValSubCol : espValContCol;
-                const cellValue = rowData[valIndex];
-                prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                if(valIndex !== -1) {
+                    const cellValue = rowData[valIndex];
+                    prestador.valorPorContrato = typeof cellValue === 'number' ? cellValue : parseFloat(cellValue);
+                }
                 
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
-                const pobValue = rowData[pobIndex];
-                prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                 if(pobIndex !== -1) {
+                    const pobValue = rowData[pobIndex];
+                    prestador.poblacion = typeof pobValue === 'number' ? pobValue : parseInt(pobValue, 10);
+                }
             }
         }
     }
@@ -370,29 +376,38 @@ export default function DetailedReports({
                  count = segmentLines.reduce((acc, line) => {
                     const cols = line.split(',');
                     const lineCode = cols[posInfo.code];
-                    const userId = cols[posInfo.user];
-
-                    if (lineCode === codeToSearch) {
-                        const user = usersMap.get(userId);
-                        if (!user || isNaN(user.edad)) return acc;
-
-                        if (isSpecialFemale) {
-                            if (user.sexo === 'F' && user.unidadMedidaEdad === '1' && user.edad >= 14 && user.edad <= 59) {
-                                return acc + 1;
-                            }
-                        } else if (isSpecialAge) {
-                            if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaEdad === '1' && user.edad < 18)) {
-                                return acc + 1;
-                            }
-                        } else if (isSpecialAdult) {
-                            if (user.unidadMedidaEdad === '1' && user.edad >= 18) {
-                                return acc + 1;
-                            }
-                        }
-                        else {
-                           return acc + 1;
-                        }
+                    
+                    if (lineCode !== codeToSearch) {
+                        return acc;
                     }
+
+                    const userId = cols[posInfo.user];
+                    const user = usersMap.get(userId);
+
+                    if (!user || isNaN(user.edad)) {
+                        // If user data is incomplete, count only if no special filter applies
+                        if (!isSpecialFemale && !isSpecialAge && !isSpecialAdult) {
+                            return acc + 1;
+                        }
+                        return acc;
+                    }
+
+                    if (isSpecialFemale) {
+                        if (user.sexo === 'F' && user.unidadMedidaEdad === '1' && user.edad >= 14 && user.edad <= 59) {
+                            return acc + 1;
+                        }
+                    } else if (isSpecialAge) {
+                        if ((user.unidadMedidaEdad !== '1') || (user.unidadMedidaEdad === '1' && user.edad < 18)) {
+                            return acc + 1;
+                        }
+                    } else if (isSpecialAdult) {
+                        if (user.unidadMedidaEdad === '1' && user.edad >= 18) {
+                            return acc + 1;
+                        }
+                    } else {
+                       return acc + 1;
+                    }
+                    
                     return acc;
                 }, 0);
             } else if(seg === 'US') {
