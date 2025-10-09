@@ -233,7 +233,6 @@ export default function DetailedReports({
         const rowData = especialidadesMapByContrato.get(contratoKey);
         if(!rowData) return prestador.poblacion || 0;
         
-        const header = especialidadesData[0];
         let colIndex = -1;
 
         if (tipoSerLower.includes('pediatria')) {
@@ -272,7 +271,10 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina general sub']) : getColumnIndex(header, ['poblacion medicina general contri']);
         } else if (tipoSerLower.includes('enfermeria')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion enfermeria sub']) : getColumnIndex(header, ['poblacion enfermeria contri']);
+        } else if (tipoSerLower.includes('psicologia') || tipoSerLower.includes('nutricion')) {
+             return prestador.poblacion || 0;
         }
+
 
         if (colIndex !== -1 && rowData[colIndex]) {
             const val = parseInt(rowData[colIndex], 10);
@@ -306,9 +308,9 @@ export default function DetailedReports({
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva']);
-    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']);
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'valor total del contrato']);
 
 
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
