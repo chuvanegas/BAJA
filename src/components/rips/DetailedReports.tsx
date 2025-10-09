@@ -318,8 +318,8 @@ export default function DetailedReports({
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
-    const espPobSubCol = 8; // Column I 
-    const espPobContCol = 9; // Column J
+    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']); // Column I
+    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']); // Column J
     const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']); // Column Y
     const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']); // Column Z
 
