@@ -232,16 +232,17 @@ export default function DetailedReports({
     
     if (especialidadesMapByContrato.has(contratoKey)) {
         const rowData = especialidadesMapByContrato.get(contratoKey);
-        if(!rowData) return prestador.poblacion || 0;
+        const header = especialidadesData[0];
+        if(!rowData || !header) return prestador.poblacion || 0;
         
         let colIndex = -1;
 
         if (tipoSerLower.includes('pediatria')) {
-            colIndex = regimen === 'SUBSIDIADO' ? 10 : 11; // K, L
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']); // K, L
         } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? 12 : 13; // M, N
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']); // M, N
         } else if (tipoSerLower.includes('medicina interna')) {
-            colIndex = regimen === 'SUBSIDIADO' ? 14 : 15; // O, P
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']); // O, P
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
@@ -252,20 +253,20 @@ export default function DetailedReports({
     
     if (asisteMapByContrato.has(contratoKey)) {
         const rowData = asisteMapByContrato.get(contratoKey);
-        if(!rowData) return prestador.poblacion || 0;
-
         const header = asisteData[0];
+        if(!rowData || !header) return prestador.poblacion || 0;
+
         let colIndex = -1;
 
         if (tipoSerLower.includes('pediatria')) {
-            colIndex = regimen === 'SUBSIDIADO' ? 11 : 12; // L, M
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']); // L, M
         } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? 13 : 14; // N, O
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']); // N, O
         } else if (tipoSerLower.includes('medicina interna')) {
-             colIndex = regimen === 'SUBSIDIADO' ? 15 : 16; // P, Q
+             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']); // P, Q
         } else if (tipoSerLower.includes('odontologia')) {
             if (regimen === 'SUBSIDIADO') {
-                colIndex = 17; // R
+                colIndex = getColumnIndex(header, ['poblacion sub odontologia 2024']); // R
             }
         } else if (tipoSerLower.includes('medicina general')) {
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina general sub']) : getColumnIndex(header, ['poblacion medicina general contri']);
@@ -274,7 +275,6 @@ export default function DetailedReports({
         } else if (tipoSerLower.includes('psicologia') || tipoSerLower.includes('nutricion')) {
              return prestador.poblacion || 0;
         }
-
 
         if (colIndex !== -1 && rowData[colIndex]) {
             const val = parseInt(rowData[colIndex], 10);
@@ -308,8 +308,8 @@ export default function DetailedReports({
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub', 'j']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri', 'k']);
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'valor total del contrato', 'aw']);
 
 
@@ -341,7 +341,7 @@ export default function DetailedReports({
                   if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(asisteHeader, ['j']) : getColumnIndex(asisteHeader, ['k']);
+                const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
                   const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
@@ -626,20 +626,19 @@ export default function DetailedReports({
                                   </div>
                                   
                                   <div>
-                                      <strong>Régimen:</strong>
-                                      {prestador.regimen ? (
-                                          <span className="text-muted-foreground ml-2">{prestador.regimen}</span>
-                                      ) : (
-                                        <Select onValueChange={(value) => handleProviderUpdate(key, 'regimen', value)}>
-                                          <SelectTrigger className="w-full mt-1 h-8">
-                                            <SelectValue placeholder="Seleccione Régimen" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="SUBSIDIADO">SUBSIDIADO</SelectItem>
-                                            <SelectItem value="CONTRIBUTIVO">CONTRIBUTIVO</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                      )}
+                                    <strong>Régimen:</strong>
+                                    <Select 
+                                      onValueChange={(value) => handleProviderUpdate(key, 'regimen', value)}
+                                      defaultValue={prestador.regimen}
+                                    >
+                                      <SelectTrigger className="w-full mt-1 h-8">
+                                        <SelectValue placeholder="Seleccione Régimen" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="SUBSIDIADO">SUBSIDIADO</SelectItem>
+                                        <SelectItem value="CONTRIBUTIVO">CONTRIBUTIVO</SelectItem>
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   
                                   <div className="md:col-span-2">
