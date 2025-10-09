@@ -13,6 +13,8 @@ import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData } from "@/lib/types";
+import { Input } from "../ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
@@ -228,7 +230,6 @@ export default function DetailedReports({
     
     const tipoSerLower = tipoSer.toLowerCase();
     
-    // Check in Especialidades first
     if (especialidadesMapByContrato.has(contratoKey)) {
         const rowData = especialidadesMapByContrato.get(contratoKey);
         if(!rowData) return prestador.poblacion || 0;
@@ -249,7 +250,6 @@ export default function DetailedReports({
         }
     }
     
-    // Check in Asiste-EspeB
     if (asisteMapByContrato.has(contratoKey)) {
         const rowData = asisteMapByContrato.get(contratoKey);
         if(!rowData) return prestador.poblacion || 0;
@@ -282,12 +282,11 @@ export default function DetailedReports({
         }
     }
 
-    // Fallback to the general population for the contract
     return prestador.poblacion || 0;
   };
 
 
-  const handleGenerateCoincidenceReport = async () => {
+  const handleGenerateCoincidenceReport = async (updatedPrestadores?: GlobalAfSummary) => {
     if (cupsData.length === 0) {
         toast({ title: "Sin datos de mapeo", description: "Cargue y procese un archivo de mapeo CUPS primero.", variant: "destructive"});
         return;
@@ -296,21 +295,22 @@ export default function DetailedReports({
         toast({ title: "Sin archivos RIPS", description: "Cargue y valide al menos un archivo RIPS en la otra pestaña.", variant: "destructive"});
         return;
     }
-    if (Object.keys(globalAf).length === 0) {
+    if (Object.keys(globalAf).length === 0 && !updatedPrestadores) {
         toast({ title: "Sin información de prestador (AF)", description: "Asegúrese de que los archivos RIPS incluyen un archivo AF válido.", variant: "destructive"});
         return;
     }
 
     setIsProcessing(true);
 
-    const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(globalAf));
+    const prestadoresSource = updatedPrestadores || globalAf;
+    const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(prestadoresSource));
     
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
     const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']);
     const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']);
-    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'valor total del contrato']);
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'valor total del contrato', 'aw']);
 
 
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
@@ -323,7 +323,7 @@ export default function DetailedReports({
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
-        const regimen = prestador.regimen.toUpperCase();
+        const regimen = prestador.regimen?.toUpperCase();
         const contratoKey = prestador.contrato?.trim();
         
         if (!contratoKey) continue;
@@ -341,7 +341,7 @@ export default function DetailedReports({
                   if(!isNaN(numericValue)) prestador.valorPorContrato = numericValue;
                 }
                 
-                const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
+                const pobIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(asisteHeader, ['j']) : getColumnIndex(asisteHeader, ['k']);
                 if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
                   const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
@@ -451,8 +451,12 @@ export default function DetailedReports({
             coincidence.total += count;
         });
         
-        const poblacionParaFU = getPoblacionParaFU(mainPrestador, coincidence.tipoSer);
-        coincidence.fu = poblacionParaFU > 0 ? coincidence.total / poblacionParaFU : 0;
+        if (mainPrestador) {
+            const poblacionParaFU = getPoblacionParaFU(mainPrestador, coincidence.tipoSer);
+            coincidence.fu = poblacionParaFU > 0 ? coincidence.total / poblacionParaFU : 0;
+        } else {
+            coincidence.fu = 0;
+        }
         
         globalCoincidences.push(coincidence);
     });
@@ -461,7 +465,11 @@ export default function DetailedReports({
 
     setIsProcessing(false);
     setCoincidenceReport({ prestadores: enrichedGlobalAf, data: globalCoincidences, poblacionTotal });
-     toast({ title: "Reporte de coincidencias generado." });
+    if (!updatedPrestadores) {
+      toast({ title: "Reporte de coincidencias generado." });
+    } else {
+      toast({ title: "Reporte de coincidencias actualizado." });
+    }
   }
 
   const formatCurrency = (value?: number) => {
@@ -472,6 +480,17 @@ export default function DetailedReports({
   const formatNumber = (value?: number) => {
     if(value === undefined || value === null || isNaN(value)) return 'N/A';
     return new Intl.NumberFormat('es-CO').format(value);
+  };
+
+  const handleProviderUpdate = (prestadorKey: string, field: 'tipoServicio' | 'regimen', value: string) => {
+    if (!coincidenceReport) return;
+    
+    const updatedPrestadores = { ...coincidenceReport.prestadores };
+    if (updatedPrestadores[prestadorKey]) {
+        (updatedPrestadores[prestadorKey] as any)[field] = value;
+    }
+    
+    handleGenerateCoincidenceReport(updatedPrestadores);
   };
 
   return (
@@ -554,7 +573,7 @@ export default function DetailedReports({
                       </div>
                   </div>
                   <div className="flex justify-center py-4">
-                      <Button onClick={handleGenerateCoincidenceReport} disabled={isProcessing} size="lg">
+                      <Button onClick={() => handleGenerateCoincidenceReport()} disabled={isProcessing} size="lg">
                           {isProcessing ? <Cog className="animate-spin" /> : <Search />}
                           Generar Reporte de Coincidencias
                       </Button>
@@ -575,7 +594,7 @@ export default function DetailedReports({
                     <CardContent className="space-y-3 pt-6">
                         
                         <Accordion type="single" collapsible className="w-full" defaultValue='item-0'>
-                          {Object.values(coincidenceReport.prestadores).map((prestador, index) => (
+                          {Object.entries(coincidenceReport.prestadores).map(([key, prestador], index) => (
                             <AccordionItem value={`item-${index}`} key={prestador.NI + index}>
                               <AccordionTrigger>
                                 <div className="flex items-center gap-2">
@@ -585,24 +604,56 @@ export default function DetailedReports({
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent>
-                                <div className="p-4 border rounded-lg bg-card/50 space-y-2 text-sm">
+                                <div className="p-4 border rounded-lg bg-card/50 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
                                   <p><strong>Departamento:</strong> <span className="text-muted-foreground">{prestador.departamento || 'No encontrado'}</span></p>
                                   <p><strong>Municipio:</strong> <span className="text-muted-foreground">{prestador.municipio || 'No encontrado'}</span></p>
                                   <p><strong>Número de contrato:</strong> <span className="text-muted-foreground">{prestador.contrato}</span></p>
                                   <p><strong>Valor por Contrato:</strong> <span className="font-bold text-primary">{formatCurrency(prestador.valorPorContrato)}</span></p>
                                   <p><strong>Población por Contrato:</strong> <span className="font-bold text-primary">{formatNumber(prestador.poblacion)}</span></p>
-                                  <p><strong>Tipo de servicio:</strong> <span className="text-muted-foreground">{prestador.tipoServicio}</span></p>
-                                  <p><strong>Régimen:</strong> <span className="text-muted-foreground">{prestador.regimen}</span></p>
+
+                                  <div>
+                                    <strong>Tipo de servicio:</strong>
+                                    {prestador.tipoServicio ? (
+                                      <span className="text-muted-foreground ml-2">{prestador.tipoServicio}</span>
+                                    ) : (
+                                      <Input
+                                        placeholder="ej: ESPECIALIDADES_BASICA"
+                                        className="mt-1 h-8"
+                                        defaultValue={prestador.tipoServicio}
+                                        onBlur={(e) => handleProviderUpdate(key, 'tipoServicio', e.target.value)}
+                                      />
+                                    )}
+                                  </div>
                                   
-                                  <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
-                                  <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
-                                    {prestador.detalles.map((d, i) => (
-                                      <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
-                                    ))}
-                                  </ul>
-                                  <p className="font-bold text-lg text-right pt-2">
-                                    Valor LMA Total: <span className="text-primary">{formatCurrency(prestador.valorTotal)}</span>
-                                  </p>
+                                  <div>
+                                      <strong>Régimen:</strong>
+                                      {prestador.regimen ? (
+                                          <span className="text-muted-foreground ml-2">{prestador.regimen}</span>
+                                      ) : (
+                                        <Select onValueChange={(value) => handleProviderUpdate(key, 'regimen', value)}>
+                                          <SelectTrigger className="w-full mt-1 h-8">
+                                            <SelectValue placeholder="Seleccione Régimen" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="SUBSIDIADO">SUBSIDIADO</SelectItem>
+                                            <SelectItem value="CONTRIBUTIVO">CONTRIBUTIVO</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                  </div>
+                                  
+                                  <div className="md:col-span-2">
+                                      <p className="font-semibold pt-2">Periodos de radicación y valores:</p>
+                                      <ul className="list-none pl-2 space-y-1 text-sm text-muted-foreground">
+                                        {prestador.detalles.map((d, i) => (
+                                          <li key={i}>{d.periodo} → <span className="font-medium text-foreground">{formatCurrency(d.valor)}</span> <span className="text-xs italic opacity-80"> (Archivo: {d.archivo})</span></li>
+                                        ))}
+                                      </ul>
+                                      <p className="font-bold text-lg text-right pt-2">
+                                        Valor LMA Total: <span className="text-primary">{formatCurrency(prestador.valorTotal)}</span>
+                                      </p>
+                                  </div>
+
                                 </div>
                               </AccordionContent>
                             </AccordionItem>
