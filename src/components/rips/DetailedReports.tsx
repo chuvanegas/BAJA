@@ -346,7 +346,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
-                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
+                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9,.]/g, ""), 10);
                   if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
                 
@@ -370,7 +370,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
                  if(pobIndex !== -1 && rowData[pobIndex]) {
                     const pobValue = rowData[pobIndex];
-                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9.-]+/g,""), 10);
+                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9,.]/g, ""), 10);
                     if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
             }
