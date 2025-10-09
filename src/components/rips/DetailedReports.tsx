@@ -167,12 +167,13 @@ export default function DetailedReports({
                 const worksheet = workbook.Sheets[sheetName];
                 // Use { header: 1 } to get arrays of arrays, which is more robust
                 const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
                 if (jsonFromSheet.length > 1) {
-                  const headers = jsonFromSheet[0] as string[];
+                  const headers = (jsonFromSheet[0] as string[]).map(h => h ? h.toString().trim() : '');
                   const jsonData: CupsDataRow[] = jsonFromSheet.slice(1).map((row: any[]) => {
-                    const rowData: CupsDataRow = { 'Tipo Ser': '', 'CUPS': '', 'CUPS VIGENTE': '', 'NOMBRE CUPS': ''};
+                    const rowData: CupsDataRow = {};
                     headers.forEach((header, index) => {
-                      if (header) { // Ensure header is not null/undefined
+                      if (header) {
                         rowData[header] = row[index];
                       }
                     });
@@ -340,6 +341,10 @@ export default function DetailedReports({
         const regimen = prestador.regimen?.toUpperCase();
         const contratoKey = prestador.contrato?.trim();
         
+        // Reset population and contract value before recalculating
+        prestador.poblacion = 0;
+        prestador.valorPorContrato = 0;
+        
         if (!contratoKey) continue;
         
         let found = false;
@@ -488,12 +493,12 @@ export default function DetailedReports({
   }
 
   const formatCurrency = (value?: number) => {
-    if(value === undefined || value === null || isNaN(value)) return 'N/A';
+    if(value === undefined || value === null || isNaN(value)) return '$0';
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   };
   
   const formatNumber = (value?: number) => {
-    if(value === undefined || value === null || isNaN(value)) return 'N/A';
+    if(value === undefined || value === null || isNaN(value)) return '0';
     return new Intl.NumberFormat('es-CO').format(value);
   };
 
