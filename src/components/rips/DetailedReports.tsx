@@ -307,21 +307,21 @@ export default function DetailedReports({
     const prestadoresSource = updatedPrestadores || globalAf;
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(prestadoresSource));
     
+    // Define column name mappings for flexibility
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']); // Column J
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']); // Column K
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']);
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
-
 
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
-    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']); // Column I
-    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']); // Column J
-    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']); // Column Y
-    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']); // Column Z
+    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
+    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
+    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
+    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -331,6 +331,8 @@ export default function DetailedReports({
         if (!contratoKey) continue;
         
         let found = false;
+
+        // Try to enrich from Asiste-EspeB first
         if(asisteMapByContrato.has(contratoKey)){
             const rowData = asisteMapByContrato.get(contratoKey);
             if(rowData){
@@ -354,6 +356,7 @@ export default function DetailedReports({
             }
         }
         
+        // If not found, try to enrich from Especialidades
         if (!found && especialidadesMapByContrato.has(contratoKey)) {
             const rowData = especialidadesMapByContrato.get(contratoKey);
              if(rowData){
