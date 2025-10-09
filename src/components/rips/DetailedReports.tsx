@@ -165,8 +165,20 @@ export default function DetailedReports({
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<CupsDataRow>(worksheet);
-                setCupsData(jsonData);
+                const jsonFromSheet = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                if (jsonFromSheet.length > 1) {
+                  const headers = jsonFromSheet[0] as string[];
+                  const jsonData: CupsDataRow[] = jsonFromSheet.slice(1).map((row: any[]) => {
+                    const rowData: CupsDataRow = { 'Tipo Ser': '', 'CUPS': '', 'CUPS VIGENTE': '', 'NOMBRE CUPS': ''};
+                    headers.forEach((header, index) => {
+                      rowData[header] = row[index];
+                    });
+                    return rowData;
+                  });
+                  setCupsData(jsonData);
+                } else {
+                  setCupsData([]);
+                }
                 resolve();
             } catch (error) {
                 console.error("Error processing CUPS file:", error);
@@ -256,7 +268,7 @@ export default function DetailedReports({
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
-            const val = parseInt(rowData[colIndex], 10);
+            const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
             if (!isNaN(val)) return val;
         }
     }
@@ -279,7 +291,7 @@ export default function DetailedReports({
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
-            const val = parseInt(rowData[colIndex], 10);
+            const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
             if (!isNaN(val)) return val;
         }
     }
@@ -348,7 +360,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? asistePobSubCol : asistePobContCol;
                 if(pobIndex !== -1 && rowData[pobIndex]) {
                   const pobValue = rowData[pobIndex];
-                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9,.]/g, ""), 10);
+                  const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9]/g, ""), 10);
                   if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
                 
@@ -373,7 +385,7 @@ export default function DetailedReports({
                 const pobIndex = regimen === 'SUBSIDIADO' ? espPobSubCol : espPobContCol;
                  if(pobIndex !== -1 && rowData[pobIndex]) {
                     const pobValue = rowData[pobIndex];
-                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9,.]/g, ""), 10);
+                    const numericValue = typeof pobValue === 'number' ? pobValue : parseInt(String(pobValue).replace(/[^0-9]/g, ""), 10);
                     if(!isNaN(numericValue)) prestador.poblacion = numericValue;
                 }
             }
