@@ -171,7 +171,9 @@ export default function DetailedReports({
                   const jsonData: CupsDataRow[] = jsonFromSheet.slice(1).map((row: any[]) => {
                     const rowData: CupsDataRow = { 'Tipo Ser': '', 'CUPS': '', 'CUPS VIGENTE': '', 'NOMBRE CUPS': ''};
                     headers.forEach((header, index) => {
-                      rowData[header] = row[index];
+                      if (header) { // Ensure header is not null/undefined
+                        rowData[header] = row[index];
+                      }
                     });
                     return rowData;
                   });
@@ -319,7 +321,6 @@ export default function DetailedReports({
     const prestadoresSource = updatedPrestadores || globalAf;
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(prestadoresSource));
     
-    // Define column name mappings for flexibility
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
@@ -344,7 +345,6 @@ export default function DetailedReports({
         
         let found = false;
 
-        // Try to enrich from Asiste-EspeB first
         if(asisteMapByContrato.has(contratoKey)){
             const rowData = asisteMapByContrato.get(contratoKey);
             if(rowData){
@@ -368,7 +368,6 @@ export default function DetailedReports({
             }
         }
         
-        // If not found, try to enrich from Especialidades
         if (!found && especialidadesMapByContrato.has(contratoKey)) {
             const rowData = especialidadesMapByContrato.get(contratoKey);
              if(rowData){
