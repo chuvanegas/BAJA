@@ -274,6 +274,8 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']); // N, O
         } else if (tipoSerLower.includes('medicina interna')) {
              colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']); // P, Q
+        } else if (tipoSerLower.includes('odontologia')) {
+            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion sub odontologia 2024']) : -1; // R
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
