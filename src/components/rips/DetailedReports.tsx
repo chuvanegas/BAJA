@@ -310,9 +310,9 @@ export default function DetailedReports({
     const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
     const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
     const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
-    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub', 'j']);
-    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri', 'k']);
-    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'valor total del contrato', 'aw']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['pb s', 'poblacion subsidiada', 'pb sub']); // Column J
+    const asistePobContCol = getColumnIndex(asisteHeader, ['pb contr', 'poblacion contributiva', 'pb contri']); // Column K
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
 
 
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
@@ -320,8 +320,8 @@ export default function DetailedReports({
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
     const espPobSubCol = 8; // Column I 
     const espPobContCol = 9; // Column J
-    const espValSubCol = 24; // Column Y
-    const espValContCol = 25; // Column Z
+    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']); // Column Y
+    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']); // Column Z
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
