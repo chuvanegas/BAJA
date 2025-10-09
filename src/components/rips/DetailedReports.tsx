@@ -229,6 +229,16 @@ export default function DetailedReports({
     if (!contratoKey || !regimen) return prestador.poblacion || 0;
     
     const tipoSerLower = tipoSer.toLowerCase();
+
+    const servicesWithTotalPopulation = [
+        "nutricion", "psicologia", "medicina general", "odontologia", 
+        "enfermeria", "laboratorio", "imagenes", "transporte", 
+        "urgencias", "hospitalizacion"
+    ];
+
+    if (servicesWithTotalPopulation.some(s => tipoSerLower.includes(s))) {
+        return prestador.poblacion || 0;
+    }
     
     if (especialidadesMapByContrato.has(contratoKey)) {
         const rowData = especialidadesMapByContrato.get(contratoKey);
@@ -264,16 +274,6 @@ export default function DetailedReports({
             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']); // N, O
         } else if (tipoSerLower.includes('medicina interna')) {
              colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']); // P, Q
-        } else if (tipoSerLower.includes('odontologia')) {
-            if (regimen === 'SUBSIDIADO') {
-                colIndex = getColumnIndex(header, ['poblacion sub odontologia 2024']); // R
-            }
-        } else if (tipoSerLower.includes('medicina general')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina general sub']) : getColumnIndex(header, ['poblacion medicina general contri']);
-        } else if (tipoSerLower.includes('enfermeria')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion enfermeria sub']) : getColumnIndex(header, ['poblacion enfermeria contri']);
-        } else if (tipoSerLower.includes('psicologia') || tipoSerLower.includes('nutricion')) {
-             return prestador.poblacion || 0;
         }
 
         if (colIndex !== -1 && rowData[colIndex]) {
