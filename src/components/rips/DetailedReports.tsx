@@ -288,13 +288,9 @@ export default function DetailedReports({
     
     const tipoSerLower = tipoSer.toLowerCase();
 
-    const servicesWithTotalPopulation = [
-        "nutricion", "psicologia", "medicina general", "odontologia", 
-        "enfermeria", "laboratorio", "imagenes", "transporte", 
-        "urgencias", "hospitalizacion"
-    ];
+    const servicesWithSpecificPopulation = ["pediatria", "ginecologia", "medicina interna"];
 
-    if (servicesWithTotalPopulation.some(s => tipoSerLower.includes(s))) {
+    if (!servicesWithSpecificPopulation.some(s => tipoSerLower.includes(s))) {
         return prestador.poblacion || 0;
     }
     
@@ -369,7 +365,6 @@ export default function DetailedReports({
     const asistePobSubCol = getColumnIndex(asisteHeader, ['PB SUB - Para 2025 PB 30 DIC', 'pb s', 'poblacion subsidiada', 'pb sub']);
     const asistePobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']);
     const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
-
     const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
     const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
     const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
