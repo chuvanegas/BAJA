@@ -363,20 +363,20 @@ export default function DetailedReports({
     const prestadoresSource = updatedPrestadores || globalAf;
     const enrichedGlobalAf: GlobalAfSummary = JSON.parse(JSON.stringify(prestadoresSource));
     
-    const asisteHeader = asisteData.length > 0 ? asisteData[0] : [],
-    asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']),
-    asisteMunCol = getColumnIndex(asisteHeader, ['municipio']),
-    asistePobSubCol = getColumnIndex(asisteHeader, ['PB SUB - Para 2025 PB 30 DIC', 'pb s', 'poblacion subsidiada', 'pb sub']),
-    asistePobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']),
-    asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
+    const asisteHeader = asisteData.length > 0 ? asisteData[0] : [];
+    const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
+    const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
+    const asistePobSubCol = getColumnIndex(asisteHeader, ['PB SUB - Para 2025 PB 30 DIC', 'pb s', 'poblacion subsidiada', 'pb sub']);
+    const asistePobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']);
+    const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
 
-    const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [],
-    espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']),
-    espMunCol = getColumnIndex(especialidadesHeader, ['municipio']),
-    espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']),
-    espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']),
-    espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']),
-    espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
+    const especialidadesHeader = especialidadesData.length > 0 ? especialidadesData[0] : [];
+    const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
+    const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
+    const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
+    const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
+    const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
+    const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
 
     for (const key in enrichedGlobalAf) {
         const prestador = enrichedGlobalAf[key];
@@ -932,3 +932,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
