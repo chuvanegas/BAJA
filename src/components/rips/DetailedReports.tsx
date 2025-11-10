@@ -544,6 +544,10 @@ export default function DetailedReports({
         toast({ title: "Sin archivos RIPS", description: "Cargue y valide al menos un archivo RIPS.", variant: "destructive"});
         return;
     }
+    if (!coincidenceReport) {
+      toast({ title: "Genere el Reporte de Coincidencias primero", description: "La población por contrato se toma del primer reporte.", variant: "destructive" });
+      return;
+    }
 
     setIsProcessing(true);
 
@@ -576,14 +580,15 @@ export default function DetailedReports({
     });
 
     const contractDataMap = new Map<string, {poblacion: number, regimen: string}>();
-     for (const key in globalAf) {
-        const prestador = globalAf[key];
-        const contratoKey = prestador.contrato?.trim();
-        if(contratoKey) {
-            contractDataMap.set(contratoKey, { poblacion: prestador.poblacion || 0, regimen: prestador.regimen || 'N/A' });
-        }
+    if (coincidenceReport) {
+      for (const key in coincidenceReport.prestadores) {
+          const prestador = coincidenceReport.prestadores[key];
+          const contratoKey = prestador.contrato?.trim();
+          if(contratoKey) {
+              contractDataMap.set(contratoKey, { poblacion: prestador.poblacion || 0, regimen: prestador.regimen || 'N/A' });
+          }
+      }
     }
-
 
     const report: ContractCupsReportItem[] = contractCupsData.map(row => {
         const cupsCode = row.CUPS?.toString();
