@@ -195,13 +195,13 @@ export const exportContractCupsToExcel = (report: ContractCupsReportItem[]) => {
     const ws = XLSX.utils.json_to_sheet(dataToExport);
 
     ws['!cols'] = [
-        { wch: 40 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 50 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 20 },
+        { wch: 40 }, // Razón Social
+        { wch: 20 }, // Número Contrato
+        { wch: 15 }, // CUPS
+        { wch: 50 }, // Descripción CUPS
+        { wch: 15 }, // Actividad RIPS
+        { wch: 20 }, // Población Contrato
+        { wch: 20 }, // Frecuencia de Uso
     ];
 
     const numberFormat = '#,##0';

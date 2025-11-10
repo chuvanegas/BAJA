@@ -579,29 +579,26 @@ export default function DetailedReports({
         });
     });
 
-    const contractDataMap = new Map<string, {poblacion: number, regimen: string}>();
-    if (coincidenceReport) {
-      for (const key in coincidenceReport.prestadores) {
-          const prestador = coincidenceReport.prestadores[key];
-          const contratoKey = prestador.contrato?.trim();
-          if(contratoKey) {
-              contractDataMap.set(contratoKey, { poblacion: prestador.poblacion || 0, regimen: prestador.regimen || 'N/A' });
-          }
-      }
-    }
+    const fuMap = new Map<string, number>();
+    coincidenceReport.data.forEach(item => {
+        if(item.cups) fuMap.set(item.cups, item.fu || 0);
+        if(item.cupsVigente) fuMap.set(item.cupsVigente, item.fu || 0);
+    });
 
     const report: ContractCupsReportItem[] = contractCupsData.map(row => {
         const cupsCode = row.CUPS?.toString();
-        const contractId = row.NUMERO_CONTRATO?.toString();
         const actividad = activityCounts.get(cupsCode) || 0;
-        const contractInfo = contractDataMap.get(contractId) || {poblacion: 0};
-        const poblacion = contractInfo.poblacion;
+        
+        const contractInfo = Object.values(coincidenceReport.prestadores).find(p => p.contrato === row.NUMERO_CONTRATO);
+        const poblacion = contractInfo?.poblacion || 0;
+        
+        const frecuenciaDeUso = fuMap.get(cupsCode) || 0;
 
         return {
             ...row,
             actividadRips: actividad,
             poblacion: poblacion,
-            frecuenciaDeUso: poblacion > 0 ? actividad / poblacion : 0,
+            frecuenciaDeUso: frecuenciaDeUso,
         };
     });
 
@@ -892,8 +889,8 @@ export default function DetailedReports({
                             <Table>
                                 <TableHeader className="sticky top-0 bg-muted">
                                     <TableRow>
-                                        <TableHead>Contrato</TableHead>
                                         <TableHead>Razón Social</TableHead>
+                                        <TableHead>Contrato</TableHead>
                                         <TableHead>CUPS</TableHead>
                                         <TableHead>Descripción CUPS</TableHead>
                                         <TableHead className="text-right">Actividad RIPS</TableHead>
@@ -904,8 +901,8 @@ export default function DetailedReports({
                                 <TableBody>
                                     {contractCupsReport.map((row, index) => (
                                         <TableRow key={index}>
-                                            <TableCell className="font-mono">{row.NUMERO_CONTRATO}</TableCell>
                                             <TableCell>{row.RAZON_SOCIAL_IPS}</TableCell>
+                                            <TableCell className="font-mono">{row.NUMERO_CONTRATO}</TableCell>
                                             <TableCell className="font-mono">{row.CUPS}</TableCell>
                                             <TableCell>{row.DESCRPCION_CUP}</TableCell>
                                             <TableCell className="text-right">{formatNumber(row.actividadRips)}</TableCell>
@@ -937,5 +934,3 @@ export default function DetailedReports({
     </Card>
   );
 }
-
-    
