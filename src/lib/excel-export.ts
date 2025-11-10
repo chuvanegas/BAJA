@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { GlobalAfSummary, CoincidenceReport } from './types';
+import type { GlobalAfSummary, CoincidenceReport, ContractCupsReportItem } from './types';
 
 export const exportToExcel = (globalAF: GlobalAfSummary) => {
   if (Object.keys(globalAF).length === 0) {
@@ -174,3 +174,56 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
     XLSX.utils.book_append_sheet(wb, ws, "Reporte Coincidencias");
     XLSX.writeFile(wb, "Reporte_Coincidencias_CUPS.xlsx");
 }
+
+
+export const exportContractCupsToExcel = (report: ContractCupsReportItem[]) => {
+    if (!report || report.length === 0) {
+        console.error("No hay datos de Contrato-CUPS para exportar");
+        return;
+    }
+
+    const dataToExport = report.map(item => ({
+        "Razón Social": item.RAZON_SOCIAL_IPS,
+        "Número Contrato": item.NUMERO_CONTRATO,
+        "CUPS": item.CUPS,
+        "Descripción CUPS": item.DESCRPCION_CUP,
+        "Actividad RIPS": item.actividadRips,
+        "Población Contrato": item.poblacion,
+        "Frecuencia de Uso": item.frecuenciaDeUso,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+    ws['!cols'] = [
+        { wch: 40 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 50 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 20 },
+    ];
+
+    const numberFormat = '#,##0';
+    const fuFormat = '0.0000';
+
+    report.forEach((_row, r) => {
+        const rowIndex = r + 2; 
+        const actividadCell = ws[`E${rowIndex}`];
+        if(actividadCell && typeof actividadCell.v === 'number') {
+            actividadCell.z = numberFormat;
+        }
+        const poblacionCell = ws[`F${rowIndex}`];
+        if(poblacionCell && typeof poblacionCell.v === 'number') {
+            poblacionCell.z = numberFormat;
+        }
+        const fuCell = ws[`G${rowIndex}`];
+        if(fuCell && typeof fuCell.v === 'number') {
+            fuCell.z = fuFormat;
+        }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reporte Contrato-CUPS");
+    XLSX.writeFile(wb, "Reporte_Contrato_CUPS.xlsx");
+};

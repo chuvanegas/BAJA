@@ -105,3 +105,19 @@ export type UserRanking = {
 };
 
 export type GenericRow = Record<string, any>;
+
+
+export type ContractCupsDataRow = {
+    RAZON_SOCIAL_IPS: string;
+    NUMERO_CONTRATO: string;
+    FECHA_INICIO: string;
+    FECHA_FIN: string;
+    CUPS: string;
+    DESCRPCION_CUP: string;
+};
+
+export type ContractCupsReportItem = ContractCupsDataRow & {
+    actividadRips: number;
+    poblacion: number;
+    frecuenciaDeUso: number;
+};

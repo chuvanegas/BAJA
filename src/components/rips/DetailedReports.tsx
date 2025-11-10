@@ -10,9 +10,9 @@ import { Badge } from "../ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
-import { exportCoincidenceToExcel } from "@/lib/excel-export";
+import { exportCoincidenceToExcel, exportContractCupsToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData } from "@/lib/types";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData, ContractCupsDataRow, ContractCupsReportItem } from "@/lib/types";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -81,10 +81,14 @@ export default function DetailedReports({
   const [especialidadesFile, setEspecialidadesFile] = useState<File | null>(null);
   const [asisteData, setAsisteData] = useState<GenericRow[]>([]);
   const [especialidadesData, setEspecialidadesData] = useState<GenericRow[]>([]);
+  const [contractCupsFile, setContractCupsFile] = useState<File | null>(null);
+  const [contractCupsData, setContractCupsData] = useState<ContractCupsDataRow[]>([]);
+  const [contractCupsReport, setContractCupsReport] = useState<ContractCupsReportItem[] | null>(null);
   
   const cupsInputRef = useRef<HTMLInputElement>(null);
   const asisteInputRef = useRef<HTMLInputElement>(null);
   const especialidadesInputRef = useRef<HTMLInputElement>(null);
+  const contractCupsInputRef = useRef<HTMLInputElement>(null);
 
   const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
     return new Promise<void>((resolve, reject) => {
@@ -111,19 +115,54 @@ export default function DetailedReports({
         reader.readAsBinaryString(file);
     });
   }
+
+  const processContractCupsFile = (file: File) => {
+    return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonFromSheet = XLSX.utils.sheet_to_json<ContractCupsDataRow>(worksheet);
+                setContractCupsData(jsonFromSheet);
+                resolve();
+            } catch (error) {
+                console.error("Error processing Contract-CUPS file:", error);
+                reject(error);
+            }
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsBinaryString(file);
+    });
+};
   
   const handleGenericFileChange = (
       event: React.ChangeEvent<HTMLInputElement>,
       setFile: (file: File | null) => void,
       setData: (data: any[]) => void,
-      isCups: boolean = false,
+      fileType: 'cups' | 'enrichment' | 'contract-cups',
     ) => {
         const file = event.target.files?.[0];
         if (file) {
             setFile(file);
             setData([]); // Reset previous data on new file selection
             setIsProcessing(true);
-            const promise = isCups ? processCupsFile(file) : processEnrichmentFile(file, setData as (data: GenericRow[]) => void);
+            let promise: Promise<void>;
+            switch(fileType) {
+              case 'cups':
+                promise = processCupsFile(file);
+                break;
+              case 'contract-cups':
+                promise = processContractCupsFile(file);
+                break;
+              case 'enrichment':
+              default:
+                promise = processEnrichmentFile(file, setData as (data: GenericRow[]) => void);
+                break;
+            }
+            
             promise.then(() => {
               toast({
                 title: "Archivo procesado",
@@ -148,10 +187,14 @@ export default function DetailedReports({
     setAsisteData([]);
     setEspecialidadesFile(null);
     setEspecialidadesData([]);
+    setContractCupsFile(null);
+    setContractCupsData([]);
+    setContractCupsReport(null);
 
     if(cupsInputRef.current) cupsInputRef.current.value = "";
     if(asisteInputRef.current) asisteInputRef.current.value = "";
     if(especialidadesInputRef.current) especialidadesInputRef.current.value = "";
+    if(contractCupsInputRef.current) contractCupsInputRef.current.value = "";
 
     toast({ title: "Archivos y datos limpiados" });
   }
@@ -491,6 +534,78 @@ export default function DetailedReports({
     }
   }
 
+
+  const handleGenerateContractCupsReport = async () => {
+    if (contractCupsData.length === 0) {
+        toast({ title: "Sin datos de Contrato-CUPS", description: "Cargue un archivo de mapeo Contrato-CUPS primero.", variant: "destructive"});
+        return;
+    }
+    if (Object.keys(ripsFileContents).length === 0) {
+        toast({ title: "Sin archivos RIPS", description: "Cargue y valide al menos un archivo RIPS.", variant: "destructive"});
+        return;
+    }
+
+    setIsProcessing(true);
+
+    const allRipsBlocks: Record<string, string[]> = {};
+    for (const content of Object.values(ripsFileContents)) {
+        const blocks = parseRIPS(content);
+        for (const segment in blocks) {
+            if (!allRipsBlocks[segment]) allRipsBlocks[segment] = [];
+            allRipsBlocks[segment].push(...blocks[segment]);
+        }
+    }
+
+    const activityPositions: { [key: string]: { code: number } } = {
+        'AC': { code: 6 }, 'AP': { code: 7 }, 'AU': { code: 6 },
+        'AH': { code: 8 }, 'AN': { code: 6 }, 'AT': { code: 6 }
+    };
+    const segmentsToSearch = Object.keys(activityPositions);
+
+    const activityCounts = new Map<string, number>();
+    segmentsToSearch.forEach(seg => {
+        const segmentLines = allRipsBlocks[seg] || [];
+        const posInfo = activityPositions[seg];
+        segmentLines.forEach(line => {
+            const cols = line.split(',');
+            const lineCode = cols[posInfo.code];
+            if(lineCode) {
+                activityCounts.set(lineCode, (activityCounts.get(lineCode) || 0) + 1);
+            }
+        });
+    });
+
+    const contractDataMap = new Map<string, {poblacion: number, regimen: string}>();
+     for (const key in globalAf) {
+        const prestador = globalAf[key];
+        const contratoKey = prestador.contrato?.trim();
+        if(contratoKey) {
+            contractDataMap.set(contratoKey, { poblacion: prestador.poblacion || 0, regimen: prestador.regimen || 'N/A' });
+        }
+    }
+
+
+    const report: ContractCupsReportItem[] = contractCupsData.map(row => {
+        const cupsCode = row.CUPS?.toString();
+        const contractId = row.NUMERO_CONTRATO?.toString();
+        const actividad = activityCounts.get(cupsCode) || 0;
+        const contractInfo = contractDataMap.get(contractId) || {poblacion: 0};
+        const poblacion = contractInfo.poblacion;
+
+        return {
+            ...row,
+            actividadRips: actividad,
+            poblacion: poblacion,
+            frecuenciaDeUso: poblacion > 0 ? actividad / poblacion : 0,
+        };
+    });
+
+    setContractCupsReport(report);
+    setIsProcessing(false);
+    toast({ title: "Reporte Contrato-CUPS generado." });
+};
+
+
   const formatCurrency = (value?: number) => {
     if(value === undefined || value === null || isNaN(value)) return '$0';
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
@@ -529,11 +644,24 @@ export default function DetailedReports({
                 description="Archivo principal para cruzar los códigos CUPS con los RIPS."
                 file={cupsFile}
                 inputRef={cupsInputRef}
-                onFileChange={(e) => handleGenericFileChange(e, setCupsFile, setCupsData, true)}
+                onFileChange={(e) => handleGenericFileChange(e, setCupsFile, setCupsData, 'cups')}
                 onClean={() => {
                   setCupsFile(null);
                   setCupsData([]);
                   if(cupsInputRef.current) cupsInputRef.current.value = "";
+                }}
+              />
+
+              <Uploader
+                title="Cargar Mapeo Contrato-CUPS"
+                description="Cargue el archivo con la relación Contrato-CUPS para el nuevo reporte."
+                file={contractCupsFile}
+                inputRef={contractCupsInputRef}
+                onFileChange={(e) => handleGenericFileChange(e, setContractCupsFile, setContractCupsData, 'contract-cups')}
+                onClean={() => {
+                    setContractCupsFile(null);
+                    setContractCupsData([]);
+                    if(contractCupsInputRef.current) contractCupsInputRef.current.value = "";
                 }}
               />
               
@@ -548,7 +676,7 @@ export default function DetailedReports({
                         description="Para datos de ubicación (Depto/Municipio) y valores de contrato."
                         file={asisteFile}
                         inputRef={asisteInputRef}
-                        onFileChange={(e) => handleGenericFileChange(e, setAsisteFile, setAsisteData)}
+                        onFileChange={(e) => handleGenericFileChange(e, setAsisteFile, setAsisteData, 'enrichment')}
                         onClean={() => {
                             setAsisteFile(null);
                             setAsisteData([]);
@@ -560,7 +688,7 @@ export default function DetailedReports({
                         description="Para cruzar por número de contrato y valores."
                         file={especialidadesFile}
                         inputRef={especialidadesInputRef}
-                        onFileChange={(e) => handleGenericFileChange(e, setEspecialidadesFile, setEspecialidadesData)}
+                        onFileChange={(e) => handleGenericFileChange(e, setEspecialidadesFile, setEspecialidadesData, 'enrichment')}
                         onClean={() => {
                             setEspecialidadesFile(null);
                             setEspecialidadesData([]);
@@ -578,24 +706,43 @@ export default function DetailedReports({
           </AccordionItem>
         </Accordion>
         
-        {cupsData.length > 0 && (
+        {(cupsData.length > 0 || contractCupsData.length > 0) && (
           <div className="space-y-4">
             <Accordion type="single" collapsible className="w-full" defaultValue="item-2">
               <AccordionItem value="item-2">
                 <AccordionTrigger className="text-lg font-semibold">Paso 2: Generación de Reporte</AccordionTrigger>
                 <AccordionContent className="pt-4 space-y-6">
-                  <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
+                  {cupsData.length > 0 && (
+                    <div className="p-4 rounded-md border-l-4 border-green-500 bg-green-500/10 flex items-center gap-3">
+                        <CheckCircle className="w-6 h-6 text-green-600" />
+                        <div>
+                            <p className="font-semibold text-green-700 dark:text-green-400">¡Archivo Mapeo CUPS listo!</p>
+                            <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros. Ahora puede generar el reporte de coincidencias.</p>
+                        </div>
+                    </div>
+                  )}
+                   {contractCupsData.length > 0 && (
+                    <div className="p-4 rounded-md border-l-4 border-blue-500 bg-blue-500/10 flex items-center gap-3 mt-4">
+                      <CheckCircle className="w-6 h-6 text-blue-600" />
                       <div>
-                          <p className="font-semibold text-green-700 dark:text-green-400">¡Archivos listos!</p>
-                          <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{cupsData.length}</span> registros de mapeo. Ahora puede generar el reporte.</p>
+                        <p className="font-semibold text-blue-700 dark:text-blue-400">¡Archivo Contrato-CUPS listo!</p>
+                        <p className="text-sm text-muted-foreground">Se cargaron <span className="font-bold text-foreground">{contractCupsData.length}</span> registros. Ahora puede generar el nuevo reporte por contrato.</p>
                       </div>
-                  </div>
-                  <div className="flex justify-center py-4">
-                      <Button onClick={() => handleGenerateCoincidenceReport()} disabled={isProcessing} size="lg">
-                          {isProcessing ? <Cog className="animate-spin" /> : <Search />}
-                          Generar Reporte de Coincidencias
-                      </Button>
+                    </div>
+                  )}
+                  <div className="flex justify-center flex-wrap gap-4 py-4">
+                      {cupsData.length > 0 && (
+                        <Button onClick={() => handleGenerateCoincidenceReport()} disabled={isProcessing} size="lg">
+                            {isProcessing ? <Cog className="animate-spin" /> : <Search />}
+                            Generar Reporte de Coincidencias
+                        </Button>
+                      )}
+                      {contractCupsData.length > 0 && (
+                        <Button onClick={handleGenerateContractCupsReport} disabled={isProcessing} size="lg" variant="secondary">
+                            {isProcessing ? <Cog className="animate-spin" /> : <Search />}
+                            Generar Reporte Contrato-CUPS
+                        </Button>
+                      )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -719,6 +866,54 @@ export default function DetailedReports({
                         </ScrollArea>
                         <div className="flex justify-end pt-4">
                             <Button onClick={() => exportCoincidenceToExcel(coincidenceReport)}>
+                                <Download className="mr-2"/>
+                                Exportar Reporte a Excel
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )}
+        
+        {contractCupsReport && (
+            <div className="space-y-4 pt-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Reporte de Frecuencia de Uso por Contrato y CUPS</CardTitle>
+                        <CardDescription>Análisis de frecuencia de uso basado en el archivo de Contrato-CUPS y la actividad en los RIPS.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 pt-6">
+                        <ScrollArea className="whitespace-nowrap rounded-md border max-h-[500px]">
+                            <Table>
+                                <TableHeader className="sticky top-0 bg-muted">
+                                    <TableRow>
+                                        <TableHead>Contrato</TableHead>
+                                        <TableHead>Razón Social</TableHead>
+                                        <TableHead>CUPS</TableHead>
+                                        <TableHead>Descripción CUPS</TableHead>
+                                        <TableHead className="text-right">Actividad RIPS</TableHead>
+                                        <TableHead className="text-right">Población Contrato</TableHead>
+                                        <TableHead className="text-right font-bold">Frecuencia de Uso (FU)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {contractCupsReport.map((row, index) => (
+                                        <TableRow key={index}>
+                                            <TableCell className="font-mono">{row.NUMERO_CONTRATO}</TableCell>
+                                            <TableCell>{row.RAZON_SOCIAL_IPS}</TableCell>
+                                            <TableCell className="font-mono">{row.CUPS}</TableCell>
+                                            <TableCell>{row.DESCRPCION_CUP}</TableCell>
+                                            <TableCell className="text-right">{formatNumber(row.actividadRips)}</TableCell>
+                                            <TableCell className="text-right">{formatNumber(row.poblacion)}</TableCell>
+                                            <TableCell className="text-right font-bold">{row.frecuenciaDeUso.toFixed(4)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                         <div className="flex justify-end pt-4">
+                            <Button onClick={() => exportContractCupsToExcel(contractCupsReport)}>
                                 <Download className="mr-2"/>
                                 Exportar Reporte a Excel
                             </Button>
