@@ -383,7 +383,6 @@ export default function DetailedReports({
         const regimen = prestador.regimen?.toUpperCase();
         const contratoKey = prestador.contrato?.trim();
         
-        // Reset population and contract value before recalculating
         prestador.poblacion = 0;
         prestador.valorPorContrato = 0;
         
@@ -545,7 +544,7 @@ export default function DetailedReports({
         return;
     }
     if (!coincidenceReport) {
-      toast({ title: "Genere el Reporte de Coincidencias primero", description: "La población por contrato se toma del primer reporte.", variant: "destructive" });
+      toast({ title: "Genere el Reporte de Coincidencias primero", description: "La información de población y frecuencia se toma del primer reporte.", variant: "destructive" });
       return;
     }
 
@@ -740,7 +739,7 @@ export default function DetailedReports({
                         </Button>
                       )}
                       {contractCupsData.length > 0 && (
-                        <Button onClick={handleGenerateContractCupsReport} disabled={isProcessing} size="lg" variant="secondary">
+                        <Button onClick={handleGenerateContractCupsReport} disabled={isProcessing || !coincidenceReport} size="lg" variant="secondary">
                             {isProcessing ? <Cog className="animate-spin" /> : <Search />}
                             Generar Reporte Contrato-CUPS
                         </Button>
