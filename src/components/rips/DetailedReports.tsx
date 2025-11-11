@@ -289,12 +289,21 @@ export default function DetailedReports({
     const tipoSerLower = tipoSer.toLowerCase();
     
     const servicesWithSpecificPopulation = ["pediatria", "ginecologia", "medicina interna"];
-
+    let specificPopulation: number | null = null;
+    
     if (servicesWithSpecificPopulation.some(s => tipoSerLower.includes(s))) {
-        let specificPopulation: number | null = null;
+        let sourceMap, sourceData;
         if (especialidadesMapByContrato.has(contratoKey)) {
-            const rowData = especialidadesMapByContrato.get(contratoKey);
-            const header = especialidadesData[0];
+            sourceMap = especialidadesMapByContrato;
+            sourceData = especialidadesData;
+        } else if (asisteMapByContrato.has(contratoKey)) {
+            sourceMap = asisteMapByContrato;
+            sourceData = asisteData;
+        }
+
+        if (sourceMap && sourceData) {
+            const rowData = sourceMap.get(contratoKey);
+            const header = sourceData[0];
             if(rowData && header) {
                 let colIndex = -1;
                 if (tipoSerLower.includes('pediatria')) {
@@ -305,35 +314,14 @@ export default function DetailedReports({
                     colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
                 }
                 if (colIndex !== -1 && rowData[colIndex]) {
-                    const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
+                    const val = getNumericValue(rowData[colIndex]);
                     if (!isNaN(val)) specificPopulation = val;
                 }
             }
         }
-        
-        if (specificPopulation === null && asisteMapByContrato.has(contratoKey)) {
-            const rowData = asisteMapByContrato.get(contratoKey);
-            const header = asisteData[0];
-            if(rowData && header) {
-                let colIndex = -1;
-                if (tipoSerLower.includes('pediatria')) {
-                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
-                } else if (tipoSerLower.includes('ginecologia')) {
-                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
-                } else if (tipoSerLower.includes('medicina interna')) {
-                     colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
-                }
-                if (colIndex !== -1 && rowData[colIndex]) {
-                    const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
-                    if (!isNaN(val)) specificPopulation = val;
-                }
-            }
-        }
-        
-        if (specificPopulation !== null) return specificPopulation;
     }
-
-    return prestador.poblacion || 0;
+    
+    return specificPopulation !== null ? specificPopulation : (prestador.poblacion || 0);
   };
 
   const getNumericValue = (value: any): number => {
@@ -379,50 +367,51 @@ export default function DetailedReports({
         
         if (!contratoKey) continue;
         
-        let foundInAsiste = false;
+        let enriched = false;
+
         if (asisteMapByContrato.has(contratoKey)) {
             const rowData = asisteMapByContrato.get(contratoKey);
             if (rowData) {
-                foundInAsiste = true;
-                const asisteDeptoCol = getColumnIndex(asisteHeader, ['departamento']);
-                const asisteMunCol = getColumnIndex(asisteHeader, ['municipio']);
-                const asistePobSubCol = getColumnIndex(asisteHeader, ['PB SUB - Para 2025 PB 30 DIC', 'pb s', 'poblacion subsidiada', 'pb sub']);
-                const asistePobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']);
-                const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
+                const deptoCol = getColumnIndex(asisteHeader, ['departamento']);
+                const munCol = getColumnIndex(asisteHeader, ['municipio']);
+                const pobSubCol = getColumnIndex(asisteHeader, ['PB SUB - Para 2025 PB 30 DIC', 'pb s', 'poblacion subsidiada', 'pb sub']);
+                const pobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']);
+                const valContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
 
-                if (asisteDeptoCol !== -1) prestador.departamento = rowData[asisteDeptoCol] || 'N/A';
-                if (asisteMunCol !== -1) prestador.municipio = rowData[asisteMunCol] || 'N/A';
+                if (deptoCol !== -1) prestador.departamento = rowData[deptoCol] || 'N/A';
+                if (munCol !== -1) prestador.municipio = rowData[munCol] || 'N/A';
                 
-                const pobSub = asistePobSubCol !== -1 ? getNumericValue(rowData[asistePobSubCol]) : 0;
-                const pobCont = asistePobContCol !== -1 ? getNumericValue(rowData[asistePobContCol]) : 0;
+                const pobSub = pobSubCol !== -1 ? getNumericValue(rowData[pobSubCol]) : 0;
+                const pobCont = pobContCol !== -1 ? getNumericValue(rowData[pobContCol]) : 0;
                 
                 prestador.poblacion = regimen === 'SUBSIDIADO' ? pobSub : pobCont;
-                prestador.valorPorContrato = asisteValContratoCol !== -1 ? getNumericValue(rowData[asisteValContratoCol]) : 0;
+                prestador.valorPorContrato = valContratoCol !== -1 ? getNumericValue(rowData[valContratoCol]) : 0;
+                enriched = true;
             }
         }
         
-        if (!foundInAsiste && especialidadesMapByContrato.has(contratoKey)) {
+        if (!enriched && especialidadesMapByContrato.has(contratoKey)) {
             const rowData = especialidadesMapByContrato.get(contratoKey);
             if (rowData) {
-                const espDeptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
-                const espMunCol = getColumnIndex(especialidadesHeader, ['municipio']);
-                const espPobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada']);
-                const espPobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva']);
-                const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
-                const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
+                const deptoCol = getColumnIndex(especialidadesHeader, ['departamento']);
+                const munCol = getColumnIndex(especialidadesHeader, ['municipio']);
+                const pobSubCol = getColumnIndex(especialidadesHeader, ['poblacion subsidiada', 'pb s']);
+                const pobContCol = getColumnIndex(especialidadesHeader, ['poblacion contributiva', 'pb contr']);
+                const valSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
+                const valContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
 
-                if (espDeptoCol !== -1) prestador.departamento = rowData[espDeptoCol] || 'N/A';
-                if (espMunCol !== -1) prestador.municipio = rowData[espMunCol] || 'N/A';
+                if (deptoCol !== -1) prestador.departamento = rowData[deptoCol] || 'N/A';
+                if (munCol !== -1) prestador.municipio = rowData[munCol] || 'N/A';
 
-                const pobSub = espPobSubCol !== -1 ? getNumericValue(rowData[espPobSubCol]) : 0;
-                const pobCont = espPobContCol !== -1 ? getNumericValue(rowData[espPobContCol]) : 0;
+                const pobSub = pobSubCol !== -1 ? getNumericValue(rowData[pobSubCol]) : 0;
+                const pobCont = pobContCol !== -1 ? getNumericValue(rowData[pobContCol]) : 0;
                 
                 prestador.poblacion = regimen === 'SUBSIDIADO' ? pobSub : pobCont;
                 
-                if (regimen === 'SUBSIDIADO' && espValSubCol !== -1) {
-                    prestador.valorPorContrato = getNumericValue(rowData[espValSubCol]);
-                } else if (regimen === 'CONTRIBUTIVO' && espValContCol !== -1) {
-                    prestador.valorPorContrato = getNumericValue(rowData[espValContCol]);
+                if (regimen === 'SUBSIDIADO' && valSubCol !== -1) {
+                    prestador.valorPorContrato = getNumericValue(rowData[valSubCol]);
+                } else if (regimen === 'CONTRIBUTIVO' && valContCol !== -1) {
+                    prestador.valorPorContrato = getNumericValue(rowData[valContCol]);
                 }
             }
         }
@@ -572,8 +561,8 @@ export default function DetailedReports({
 
     const fuMap = new Map<string, number>();
     coincidenceReport.data.forEach(item => {
-        if(item.cups) fuMap.set(item.cups, item.fu || 0);
-        if(item.cupsVigente) fuMap.set(item.cupsVigente, item.fu || 0);
+        if(item.cups) fuMap.set(item.cups.toString(), item.fu || 0);
+        if(item.cupsVigente) fuMap.set(item.cupsVigente.toString(), item.fu || 0);
     });
 
     const report: ContractCupsReportItem[] = contractCupsData.map(row => {
