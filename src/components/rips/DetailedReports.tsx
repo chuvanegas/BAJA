@@ -279,7 +279,7 @@ export default function DetailedReports({
     return map;
   }, [especialidadesData]);
 
- const getPoblacionParaFU = (prestador: AfProviderData, tipoSer: string): number => {
+  const getPoblacionParaFU = (prestador: AfProviderData, tipoSer: string): number => {
     if (!prestador || !tipoSer) return prestador?.poblacion || 0;
     
     const regimen = prestador.regimen?.toUpperCase();
@@ -287,53 +287,50 @@ export default function DetailedReports({
     if (!contratoKey || !regimen) return prestador.poblacion || 0;
     
     const tipoSerLower = tipoSer.toLowerCase();
-
+    
     const servicesWithSpecificPopulation = ["pediatria", "ginecologia", "medicina interna"];
 
-    if (!servicesWithSpecificPopulation.some(s => tipoSerLower.includes(s))) {
-        return prestador.poblacion || 0;
-    }
-    
-    if (especialidadesMapByContrato.has(contratoKey)) {
-        const rowData = especialidadesMapByContrato.get(contratoKey);
-        const header = especialidadesData[0];
-        if(!rowData || !header) return prestador.poblacion || 0;
+    if (servicesWithSpecificPopulation.some(s => tipoSerLower.includes(s))) {
+        let specificPopulation: number | null = null;
+        if (especialidadesMapByContrato.has(contratoKey)) {
+            const rowData = especialidadesMapByContrato.get(contratoKey);
+            const header = especialidadesData[0];
+            if(rowData && header) {
+                let colIndex = -1;
+                if (tipoSerLower.includes('pediatria')) {
+                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+                } else if (tipoSerLower.includes('ginecologia')) {
+                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+                } else if (tipoSerLower.includes('medicina interna')) {
+                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+                }
+                if (colIndex !== -1 && rowData[colIndex]) {
+                    const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
+                    if (!isNaN(val)) specificPopulation = val;
+                }
+            }
+        }
         
-        let colIndex = -1;
-
-        if (tipoSerLower.includes('pediatria')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
-        } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
-        } else if (tipoSerLower.includes('medicina interna')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+        if (specificPopulation === null && asisteMapByContrato.has(contratoKey)) {
+            const rowData = asisteMapByContrato.get(contratoKey);
+            const header = asisteData[0];
+            if(rowData && header) {
+                let colIndex = -1;
+                if (tipoSerLower.includes('pediatria')) {
+                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
+                } else if (tipoSerLower.includes('ginecologia')) {
+                    colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
+                } else if (tipoSerLower.includes('medicina interna')) {
+                     colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
+                }
+                if (colIndex !== -1 && rowData[colIndex]) {
+                    const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
+                    if (!isNaN(val)) specificPopulation = val;
+                }
+            }
         }
-
-        if (colIndex !== -1 && rowData[colIndex]) {
-            const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
-            if (!isNaN(val)) return val;
-        }
-    }
-    
-    if (asisteMapByContrato.has(contratoKey)) {
-        const rowData = asisteMapByContrato.get(contratoKey);
-        const header = asisteData[0];
-        if(!rowData || !header) return prestador.poblacion || 0;
-
-        let colIndex = -1;
-
-        if (tipoSerLower.includes('pediatria')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['pb pediatrica sub']) : getColumnIndex(header, ['pb pediatrica contri']);
-        } else if (tipoSerLower.includes('ginecologia')) {
-            colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion gineco sub']) : getColumnIndex(header, ['poblacion gineco contri']);
-        } else if (tipoSerLower.includes('medicina interna')) {
-             colIndex = regimen === 'SUBSIDIADO' ? getColumnIndex(header, ['poblacion medicina interna sub']) : getColumnIndex(header, ['poblacion medicina interna contri']);
-        }
-
-        if (colIndex !== -1 && rowData[colIndex]) {
-            const val = parseInt(String(rowData[colIndex]).replace(/[^0-9]/g, ''), 10);
-            if (!isNaN(val)) return val;
-        }
+        
+        if (specificPopulation !== null) return specificPopulation;
     }
 
     return prestador.poblacion || 0;
@@ -396,8 +393,8 @@ export default function DetailedReports({
                 const asistePobContCol = getColumnIndex(asisteHeader, ['PB Cnt - Para 2025 PB 30 DIC', 'pb contr', 'poblacion contributiva', 'pb contri']);
                 const asisteValContratoCol = getColumnIndex(asisteHeader, ['valor total contrato', 'aw']);
 
-                prestador.departamento = rowData[asisteDeptoCol] || 'N/A';
-                prestador.municipio = rowData[asisteMunCol] || 'N/A';
+                if (asisteDeptoCol !== -1) prestador.departamento = rowData[asisteDeptoCol] || 'N/A';
+                if (asisteMunCol !== -1) prestador.municipio = rowData[asisteMunCol] || 'N/A';
                 
                 if (asistePobSubCol !== -1) pobSub = getNumericValue(rowData[asistePobSubCol]);
                 if (asistePobContCol !== -1) pobCont = getNumericValue(rowData[asistePobContCol]);
@@ -417,8 +414,8 @@ export default function DetailedReports({
                 const espValSubCol = getColumnIndex(especialidadesHeader, ['valor subsidiado']);
                 const espValContCol = getColumnIndex(especialidadesHeader, ['valor contributivo']);
 
-                prestador.departamento = rowData[espDeptoCol] || 'N/A';
-                prestador.municipio = rowData[espMunCol] || 'N/A';
+                if (espDeptoCol !== -1) prestador.departamento = rowData[espDeptoCol] || 'N/A';
+                if (espMunCol !== -1) prestador.municipio = rowData[espMunCol] || 'N/A';
 
                 if (espPobSubCol !== -1) pobSub = getNumericValue(rowData[espPobSubCol]);
                 if (espPobContCol !== -1) pobCont = getNumericValue(rowData[espPobContCol]);
@@ -932,3 +929,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    
