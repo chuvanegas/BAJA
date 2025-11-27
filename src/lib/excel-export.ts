@@ -107,7 +107,6 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
             ["Número de contrato:", prestador.contrato, "", "Tipo de servicio:", prestador.tipoServicio],
             ["Valor por Contrato:", prestador.valorPorContrato, "", "Régimen:", prestador.regimen],
             ["Población por Contrato:", prestador.poblacion, "", "Población Total (RIPS):", report.poblacionTotal],
-            ["Periodos de radicación:", "del 01 de enero al 30 de junio del 2025"],
         ];
 
         XLSX.utils.sheet_add_aoa(ws, prestadorData, { origin: `A${currentRow + 1}` });
