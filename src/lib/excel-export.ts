@@ -107,6 +107,7 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
             ["Número de contrato:", prestador.contrato, "", "Tipo de servicio:", prestador.tipoServicio],
             ["Valor por Contrato:", prestador.valorPorContrato, "", "Régimen:", prestador.regimen],
             ["Población por Contrato:", prestador.poblacion, "", "Población Total (RIPS):", report.poblacionTotal],
+            ["Periodos de radicación:", "del 01 de enero al 30 de junio del 2025"],
         ];
 
         XLSX.utils.sheet_add_aoa(ws, prestadorData, { origin: `A${currentRow + 1}` });
@@ -117,13 +118,45 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
             if (ws[`D${rowIndex}`]) ws[`D${rowIndex}`].s = labelStyle;
         });
 
-        // Format specific cells
         const baseRow = currentRow + 1;
-        if (ws[`B${baseRow + 3}`]) { ws[`B${baseRow + 3}`].t = 'n'; ws[`B${baseRow + 3}`].z = currencyFormat; } // Valor por Contrato
-        if (ws[`B${baseRow + 4}`]) { ws[`B${baseRow + 4}`].t = 'n'; ws[`B${baseRow + 4}`].z = numberFormat; }   // Poblacion por Contrato
-        if (ws[`E${baseRow + 4}`]) { ws[`E${baseRow + 4}`].t = 'n'; ws[`E${baseRow + 4}`].z = numberFormat; }   // Poblacion Total (RIPS)
+        if (ws[`B${baseRow + 3}`]) { ws[`B${baseRow + 3}`].t = 'n'; ws[`B${baseRow + 3}`].z = currencyFormat; }
+        if (ws[`B${baseRow + 4}`]) { ws[`B${baseRow + 4}`].t = 'n'; ws[`B${baseRow + 4}`].z = numberFormat; }
+        if (ws[`E${baseRow + 4}`]) { ws[`E${baseRow + 4}`].t = 'n'; ws[`E${baseRow + 4}`].z = numberFormat; }
 
         currentRow += prestadorData.length + 1;
+
+        // --- PERIODOS DE RADICACIÓN Y VALORES ---
+        XLSX.utils.sheet_add_aoa(ws, [["Periodos de radicación y valores"]], { origin: `A${currentRow + 1}` });
+        ws[`A${currentRow + 1}`].s = labelStyle;
+        currentRow++;
+
+        const periodosHeaders = ["Periodo", "Valor", "Archivo Origen"];
+        XLSX.utils.sheet_add_aoa(ws, [periodosHeaders], { origin: `A${currentRow + 1}`});
+        periodosHeaders.forEach((_, i) => {
+            const cellRef = XLSX.utils.encode_cell({ r: currentRow, c: i });
+            if(ws[cellRef]) ws[cellRef].s = headerStyle;
+        });
+        currentRow++;
+
+        const periodosData = prestador.detalles.map(d => [d.periodo, d.valor, d.archivo]);
+        XLSX.utils.sheet_add_aoa(ws, periodosData, { origin: `A${currentRow + 1}` });
+        periodosData.forEach((_, r) => {
+            const valueCellRef = XLSX.utils.encode_cell({ r: currentRow + r, c: 1 });
+            if (ws[valueCellRef]) {
+                ws[valueCellRef].t = 'n';
+                ws[valueCellRef].z = currencyFormat;
+            }
+        });
+        currentRow += periodosData.length;
+
+        // Add total
+        XLSX.utils.sheet_add_aoa(ws, [["Valor LMA Total:", prestador.valorTotal]], { origin: `A${currentRow + 1}`});
+        ws[`A${currentRow + 1}`].s = labelStyle;
+        const totalCellRef = `B${currentRow + 1}`;
+        ws[totalCellRef].t = 'n';
+        ws[totalCellRef].z = currencyFormat;
+        
+        currentRow += 2;
     }
     
     // --- CUPS TABLE ---
@@ -137,7 +170,6 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
 
     XLSX.utils.sheet_add_aoa(ws, dataToExport, { origin: `A${currentRow + 2}` });
     
-    // --- Table Styles & Formatting ---
     tableHeaders.forEach((_h, i) => {
         const cellRef = XLSX.utils.encode_cell({ r: currentRow, c: i });
         if(ws[cellRef]) ws[cellRef].s = headerStyle;
@@ -160,15 +192,14 @@ export const exportCoincidenceToExcel = (report: CoincidenceReport) => {
         }
     });
     
-    // --- Column Widths ---
     ws['!cols'] = [
-        { wch: 15 }, // CUPS
-        { wch: 15 }, // CUPS Vigente
-        { wch: 50 }, // Nombre CUPS
-        { wch: 25 }, // Tipo Ser
-        ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })), // Segments
-        { wch: 10 },  // Total
-        { wch: 12 }   // FU
+        { wch: 15 }, 
+        { wch: 15 }, 
+        { wch: 50 }, 
+        { wch: 25 }, 
+        ...Object.keys(report.data[0]?.coincidences || {}).map(() => ({ wch: 8 })),
+        { wch: 10 }, 
+        { wch: 12 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Reporte Coincidencias");
@@ -195,13 +226,13 @@ export const exportContractCupsToExcel = (report: ContractCupsReportItem[]) => {
     const ws = XLSX.utils.json_to_sheet(dataToExport);
 
     ws['!cols'] = [
-        { wch: 40 }, // Razón Social
-        { wch: 20 }, // Número Contrato
-        { wch: 15 }, // CUPS
-        { wch: 50 }, // Descripción CUPS
-        { wch: 15 }, // Actividad RIPS
-        { wch: 20 }, // Población Contrato
-        { wch: 20 }, // Frecuencia de Uso
+        { wch: 40 }, 
+        { wch: 20 }, 
+        { wch: 15 }, 
+        { wch: 50 }, 
+        { wch: 15 }, 
+        { wch: 20 }, 
+        { wch: 20 }, 
     ];
 
     const numberFormat = '#,##0';
