@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,10 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 import { parseRIPS } from "@/lib/rips-parser";
 import { exportCoincidenceToExcel, exportContractCupsToExcel } from "@/lib/excel-export";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData, ContractCupsDataRow, ContractCupsReportItem } from "@/lib/types";
+import type { CupsDataRow, Coincidence, CoincidenceReport, GlobalAfSummary, GenericRow, UserData, AfProviderData, ContractCupsDataRow, ContractCupsReportItem, DetailedCoincidence } from "@/lib/types";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 
 interface DetailedReportsProps {
   cupsData: CupsDataRow[];
@@ -84,11 +85,16 @@ export default function DetailedReports({
   const [contractCupsFile, setContractCupsFile] = useState<File | null>(null);
   const [contractCupsData, setContractCupsData] = useState<ContractCupsDataRow[]>([]);
   const [contractCupsReport, setContractCupsReport] = useState<ContractCupsReportItem[] | null>(null);
+  const [openDetail, setOpenDetail] = useState<Record<string, boolean>>({});
   
   const cupsInputRef = useRef<HTMLInputElement>(null);
   const asisteInputRef = useRef<HTMLInputElement>(null);
   const especialidadesInputRef = useRef<HTMLInputElement>(null);
   const contractCupsInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleDetail = (cups: string) => {
+    setOpenDetail(prev => ({ ...prev, [cups]: !prev[cups] }));
+  };
 
   const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
     return new Promise<void>((resolve, reject) => {
@@ -427,7 +433,7 @@ export default function DetailedReports({
         }
     }
     
-    const usersMap = new Map<string, Pick<UserData, 'edad' | 'unidadMedidaEdad' | 'sexo'>>();
+    const usersMap = new Map<string, Pick<UserData, 'edad' | 'unidadMedidaEdad' | 'sexo' | 'nombreCompleto'>>();
     if (allRipsBlocks['US']) {
       allRipsBlocks['US'].forEach(line => {
         const cols = line.split(',');
@@ -437,23 +443,24 @@ export default function DetailedReports({
             usersMap.set(numDoc, {
               edad: parseInt(cols[8], 10),
               unidadMedidaEdad: cols[9],
-              sexo: cols[10]
+              sexo: cols[10],
+              nombreCompleto: `${cols[6]} ${cols[7]} ${cols[4]} ${cols[5]}`.trim().replace(/\s+/g, ' '),
             });
           }
         }
       });
     }
 
-    const segmentsToSearch = ['AP', 'AC', 'AT', 'AN', 'AH', 'AU', 'US'];
+    const segmentsToSearch = ['AP', 'AC', 'AT', 'AM', 'AH', 'AU', 'AN'];
     let globalCoincidences: Coincidence[] = [];
 
-    const activityPositions: { [key: string]: { user: number, code: number } } = {
-        'AC': { user: 2, code: 6 },
-        'AP': { user: 3, code: 7 },
-        'AU': { user: 2, code: 6 },
-        'AH': { user: 2, code: 8 },
-        'AN': { user: 2, code: 6 },
-        'AT': { user: 2, code: 6 }
+    const activityPositions: { [key: string]: { user: number; code: number; date: number } } = {
+      'AC': { user: 2, code: 6, date: 4 },
+      'AP': { user: 3, code: 5, date: 5 },
+      'AU': { user: 2, code: 6, date: 4 },
+      'AN': { user: 2, code: 6, date: 5 },
+      'AT': { user: 2, code: 6, date: 4 },
+      'AM': { user: 2, code: 4, date: 3 },
     };
     
     
@@ -467,6 +474,7 @@ export default function DetailedReports({
             nombre: cupsRow['NOMBRE CUPS'],
             tipoSer: cupsRow['Tipo Ser'],
             coincidences: {},
+            detailedCoincidences: [],
             total: 0
         };
 
@@ -475,17 +483,23 @@ export default function DetailedReports({
             let count = 0;
             const posInfo = activityPositions[seg];
 
-            if (posInfo) {
-                count = segmentLines.reduce((acc, line) => {
+            if (posInfo && segmentLines) {
+                segmentLines.forEach((line) => {
                     const cols = line.split(',');
                     const lineCode = cols[posInfo.code];
                     if (lineCode === codeToSearch) {
-                        return acc + 1;
+                        count++;
+                        const userDoc = cols[posInfo.user];
+                        const user = usersMap.get(userDoc);
+                        const detail: DetailedCoincidence = {
+                            segment: seg,
+                            date: cols[posInfo.date],
+                            userDoc: userDoc,
+                            userName: user?.nombreCompleto || "No encontrado",
+                        }
+                        coincidence.detailedCoincidences.push(detail);
                     }
-                    return acc;
-                }, 0);
-            } else if(seg === 'US') {
-                count = segmentLines.reduce((acc, line) => acc + (line.includes(`,${codeToSearch},`) ? 1 : 0), 0);
+                });
             }
 
             coincidence.coincidences[seg] = count;
@@ -541,8 +555,8 @@ export default function DetailedReports({
     }
 
     const activityPositions: { [key: string]: { code: number } } = {
-        'AC': { code: 6 }, 'AP': { code: 7 }, 'AU': { code: 6 },
-        'AH': { code: 8 }, 'AN': { code: 6 }, 'AT': { code: 6 }
+        'AC': { code: 6 }, 'AP': { code: 5 }, 'AU': { code: 6 },
+        'AH': { code: 8 }, 'AN': { code: 6 }, 'AT': { code: 6 }, 'AM': { code: 4 }
     };
     const segmentsToSearch = Object.keys(activityPositions);
 
@@ -550,13 +564,15 @@ export default function DetailedReports({
     segmentsToSearch.forEach(seg => {
         const segmentLines = allRipsBlocks[seg] || [];
         const posInfo = activityPositions[seg];
-        segmentLines.forEach(line => {
-            const cols = line.split(',');
-            const lineCode = cols[posInfo.code];
-            if(lineCode) {
-                activityCounts.set(lineCode, (activityCounts.get(lineCode) || 0) + 1);
-            }
-        });
+        if (posInfo) {
+            segmentLines.forEach(line => {
+                const cols = line.split(',');
+                const lineCode = cols[posInfo.code];
+                if(lineCode) {
+                    activityCounts.set(lineCode, (activityCounts.get(lineCode) || 0) + 1);
+                }
+            });
+        }
     });
 
     const fuMap = new Map<string, number>();
@@ -608,6 +624,8 @@ export default function DetailedReports({
     
     handleGenerateCoincidenceReport(updatedPrestadores);
   };
+
+  const segmentsToDisplay = ['AP', 'AC', 'AT', 'AM', 'AU', 'AN'];
 
   return (
     <Card className="shadow-lg mt-8">
@@ -816,30 +834,65 @@ export default function DetailedReports({
                                             <TableHead className="min-w-[100px]">CUPS Vigente</TableHead>
                                             <TableHead className="min-w-[250px]">Nombre CUPS</TableHead>
                                             <TableHead className="min-w-[150px]">Tipo Ser</TableHead>
-                                            <TableHead className="text-center">AP</TableHead>
-                                            <TableHead className="text-center">AC</TableHead>
-                                            <TableHead className="text-center">AT</TableHead>
-                                            <TableHead className="text-center">AN</TableHead>
-                                            <TableHead className="text-center">AH</TableHead>
-                                            <TableHead className="text-center">AU</TableHead>
-                                            <TableHead className="text-center">US</TableHead>
+                                            {segmentsToDisplay.map(seg => <TableHead key={seg} className="text-center">{seg}</TableHead>)}
                                             <TableHead className="text-center font-bold">Total</TableHead>
                                             <TableHead className="text-center font-bold">FU</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {coincidenceReport.data.map((row, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-mono text-xs">{row.cups}</TableCell>
-                                                <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
-                                                <TableCell className="text-xs">{row.nombre}</TableCell>
-                                                <TableCell className="text-xs">{row.tipoSer}</TableCell>
-                                                {Object.values(row.coincidences).map((count, i) => (
-                                                    <TableCell key={i} className="text-center text-xs">{count > 0 ? <Badge variant="default">{count}</Badge> : count}</TableCell>
-                                                ))}
-                                                <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
-                                                <TableCell className="text-center text-xs font-bold">{row.fu?.toFixed(4)}</TableCell>
-                                            </TableRow>
+                                            <React.Fragment key={`${row.cups}-${row.cupsVigente}-${row.nombre}-${index}`}>
+                                                <CollapsibleTrigger asChild>
+                                                    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleDetail(row.cups)}>
+                                                        <TableCell className="font-mono text-xs">{row.cups}</TableCell>
+                                                        <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
+                                                        <TableCell className="text-xs">{row.nombre}</TableCell>
+                                                        <TableCell className="text-xs">{row.tipoSer}</TableCell>
+                                                        {segmentsToDisplay.map(seg => (
+                                                          <TableCell key={seg} className="text-center text-xs">
+                                                            {row.coincidences[seg] > 0 ? <Badge variant="default">{row.coincidences[seg]}</Badge> : 0}
+                                                          </TableCell>
+                                                        ))}
+                                                        <TableCell className="text-center text-xs font-bold">{row.total}</TableCell>
+                                                        <TableCell className="text-center text-xs font-bold">{row.fu?.toFixed(4)}</TableCell>
+                                                    </TableRow>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent asChild>
+                                                  <tr>
+                                                      <TableCell colSpan={segmentsToDisplay.length + 6} className="p-0">
+                                                          <div className="p-4 bg-secondary/30">
+                                                              <h4 className="font-semibold mb-2">Análisis Detallado de Actividad para CUPS: {row.cups}</h4>
+                                                              {row.detailedCoincidences && row.detailedCoincidences.length > 0 ? (
+                                                                  <ScrollArea className="max-h-60">
+                                                                      <Table>
+                                                                          <TableHeader>
+                                                                              <TableRow>
+                                                                                  <TableHead>Segmento</TableHead>
+                                                                                  <TableHead>Fecha</TableHead>
+                                                                                  <TableHead>Documento Paciente</TableHead>
+                                                                                  <TableHead>Nombre Paciente</TableHead>
+                                                                              </TableRow>
+                                                                          </TableHeader>
+                                                                          <TableBody>
+                                                                              {row.detailedCoincidences.map((detail, detailIndex) => (
+                                                                                  <TableRow key={detailIndex}>
+                                                                                      <TableCell><Badge>{detail.segment}</Badge></TableCell>
+                                                                                      <TableCell>{detail.date}</TableCell>
+                                                                                      <TableCell>{detail.userDoc}</TableCell>
+                                                                                      <TableCell>{detail.userName}</TableCell>
+                                                                                  </TableRow>
+                                                                              ))}
+                                                                          </TableBody>
+                                                                      </Table>
+                                                                  </ScrollArea>
+                                                              ) : (
+                                                                  <p className="text-sm text-muted-foreground text-center py-4">No hay actividades detalladas para este CUPS.</p>
+                                                              )}
+                                                          </div>
+                                                      </TableCell>
+                                                  </tr>
+                                                </CollapsibleContent>
+                                            </React.Fragment>
                                         ))}
                                     </TableBody>
                                 </Table>

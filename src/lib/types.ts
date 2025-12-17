@@ -34,7 +34,7 @@ export type ValidationResult = {
 };
 
 export type AnalysisTarget = {
-  fileName: string;
+  fileName:string;
   segment: string;
   expected: number;
   found: number;
@@ -49,12 +49,20 @@ export type CupsDataRow = {
   [key: string]: any; // Allow other properties
 };
 
+export type DetailedCoincidence = {
+    segment: string;
+    date: string;
+    userDoc: string;
+    userName: string;
+}
+
 export type Coincidence = {
     cups: string;
     cupsVigente: string;
     nombre: string;
     tipoSer: string;
     coincidences: Record<string, number>;
+    detailedCoincidences: DetailedCoincidence[];
     total: number;
     fu?: number;
     poblacionParaFU?: number;

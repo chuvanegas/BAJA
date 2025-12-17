@@ -120,7 +120,14 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
         if (vigenteCupsCode && nombre) cupsMap.set(vigenteCupsCode, nombre);
     });
 
-    const activitySegments = { 'AC': {user: 2, code: 6}, 'AP': {user: 3, code: 7}, 'AU': {user: 2, code: 6}, 'AH': {user: 2, code: 8}, 'AN': {user: 2, code: 6}, 'AT': {user: 2, code: 6} };
+    const activitySegments: { [key: string]: { user: number; code: number } } = {
+        'AC': { user: 2, code: 6 },
+        'AP': { user: 3, code: 5 },
+        'AU': { user: 2, code: 6 },
+        'AN': { user: 2, code: 6 },
+        'AT': { user: 2, code: 6 },
+        'AM': { user: 2, code: 4 },
+    };
 
     for (const seg in activitySegments) {
         if(allRipsBlocks[seg]) {
