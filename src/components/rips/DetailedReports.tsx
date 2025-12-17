@@ -85,16 +85,11 @@ export default function DetailedReports({
   const [contractCupsFile, setContractCupsFile] = useState<File | null>(null);
   const [contractCupsData, setContractCupsData] = useState<ContractCupsDataRow[]>([]);
   const [contractCupsReport, setContractCupsReport] = useState<ContractCupsReportItem[] | null>(null);
-  const [openDetail, setOpenDetail] = useState<Record<string, boolean>>({});
   
   const cupsInputRef = useRef<HTMLInputElement>(null);
   const asisteInputRef = useRef<HTMLInputElement>(null);
   const especialidadesInputRef = useRef<HTMLInputElement>(null);
   const contractCupsInputRef = useRef<HTMLInputElement>(null);
-
-  const toggleDetail = (cups: string) => {
-    setOpenDetail(prev => ({ ...prev, [cups]: !prev[cups] }));
-  };
 
   const processEnrichmentFile = (file: File, setData: (data: GenericRow[]) => void) => {
     return new Promise<void>((resolve, reject) => {
@@ -455,14 +450,13 @@ export default function DetailedReports({
     let globalCoincidences: Coincidence[] = [];
 
     const activityPositions: { [key: string]: { user: number; code: number; date: number } } = {
-      'AC': { user: 2, code: 6, date: 4 },
-      'AP': { user: 3, code: 5, date: 5 },
-      'AU': { user: 2, code: 6, date: 4 },
-      'AN': { user: 2, code: 6, date: 5 },
-      'AT': { user: 2, code: 6, date: 4 },
-      'AM': { user: 2, code: 4, date: 3 },
+      'AC': { user: 3, code: 6, date: 4 },
+      'AP': { user: 3, code: 6, date: 5 },
+      'AU': { user: 3, code: 7, date: 4 },
+      'AN': { user: 3, code: 7, date: 5 },
+      'AT': { user: 3, code: 6, date: 4 },
+      'AM': { user: 3, code: 5, date: 4 },
     };
-    
     
     cupsData.forEach(cupsRow => {
         const codeToSearch = (cupsRow['CUPS'] || cupsRow['CUPS VIGENTE'])?.toString();
@@ -486,18 +480,20 @@ export default function DetailedReports({
             if (posInfo && segmentLines) {
                 segmentLines.forEach((line) => {
                     const cols = line.split(',');
-                    const lineCode = cols[posInfo.code];
-                    if (lineCode === codeToSearch) {
-                        count++;
-                        const userDoc = cols[posInfo.user];
-                        const user = usersMap.get(userDoc);
-                        const detail: DetailedCoincidence = {
-                            segment: seg,
-                            date: cols[posInfo.date],
-                            userDoc: userDoc,
-                            userName: user?.nombreCompleto || "No encontrado",
+                    if (cols.length > posInfo.code) {
+                        const lineCode = cols[posInfo.code];
+                        if (lineCode === codeToSearch) {
+                            count++;
+                            const userDoc = cols[posInfo.user];
+                            const user = usersMap.get(userDoc);
+                            const detail: DetailedCoincidence = {
+                                segment: seg,
+                                date: cols[posInfo.date],
+                                userDoc: userDoc,
+                                userName: user?.nombreCompleto || "No encontrado",
+                            }
+                            coincidence.detailedCoincidences.push(detail);
                         }
-                        coincidence.detailedCoincidences.push(detail);
                     }
                 });
             }
@@ -555,8 +551,8 @@ export default function DetailedReports({
     }
 
     const activityPositions: { [key: string]: { code: number } } = {
-        'AC': { code: 6 }, 'AP': { code: 5 }, 'AU': { code: 6 },
-        'AH': { code: 8 }, 'AN': { code: 6 }, 'AT': { code: 6 }, 'AM': { code: 4 }
+        'AC': { code: 6 }, 'AP': { code: 6 }, 'AU': { code: 7 },
+        'AH': { code: 8 }, 'AN': { code: 7 }, 'AT': { code: 6 }, 'AM': { code: 5 }
     };
     const segmentsToSearch = Object.keys(activityPositions);
 
@@ -567,9 +563,11 @@ export default function DetailedReports({
         if (posInfo) {
             segmentLines.forEach(line => {
                 const cols = line.split(',');
-                const lineCode = cols[posInfo.code];
-                if(lineCode) {
-                    activityCounts.set(lineCode, (activityCounts.get(lineCode) || 0) + 1);
+                if (cols.length > posInfo.code) {
+                    const lineCode = cols[posInfo.code];
+                    if(lineCode) {
+                        activityCounts.set(lineCode, (activityCounts.get(lineCode) || 0) + 1);
+                    }
                 }
             });
         }
@@ -841,9 +839,10 @@ export default function DetailedReports({
                                     </TableHeader>
                                     <TableBody>
                                         {coincidenceReport.data.map((row, index) => (
-                                            <React.Fragment key={`${row.cups}-${row.cupsVigente}-${row.nombre}-${index}`}>
+                                            <Collapsible asChild key={`${row.cups}-${row.cupsVigente}-${row.nombre}-${index}`}>
+                                              <>
                                                 <CollapsibleTrigger asChild>
-                                                    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => toggleDetail(row.cups)}>
+                                                    <TableRow className="cursor-pointer hover:bg-muted/50">
                                                         <TableCell className="font-mono text-xs">{row.cups}</TableCell>
                                                         <TableCell className="font-mono text-xs">{row.cupsVigente}</TableCell>
                                                         <TableCell className="text-xs">{row.nombre}</TableCell>
@@ -858,9 +857,9 @@ export default function DetailedReports({
                                                     </TableRow>
                                                 </CollapsibleTrigger>
                                                 <CollapsibleContent asChild>
-                                                  <tr>
-                                                      <TableCell colSpan={segmentsToDisplay.length + 6} className="p-0">
-                                                          <div className="p-4 bg-secondary/30">
+                                                  <tr className="bg-secondary/30">
+                                                      <TableCell colSpan={segmentsToDisplay.length + 6}>
+                                                          <div className="p-4">
                                                               <h4 className="font-semibold mb-2">Análisis Detallado de Actividad para CUPS: {row.cups}</h4>
                                                               {row.detailedCoincidences && row.detailedCoincidences.length > 0 ? (
                                                                   <ScrollArea className="max-h-60">
@@ -892,7 +891,8 @@ export default function DetailedReports({
                                                       </TableCell>
                                                   </tr>
                                                 </CollapsibleContent>
-                                            </React.Fragment>
+                                              </>
+                                            </Collapsible>
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -967,3 +967,5 @@ export default function DetailedReports({
     </Card>
   );
 }
+
+    

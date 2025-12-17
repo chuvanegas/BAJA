@@ -3,14 +3,14 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Search, AlertCircle, TrendingUp, Award } from 'lucide-react';
+import { Users, Search, AlertCircle, TrendingUp, Award, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '../ui/scroll-area';
 import { parseRIPS } from '@/lib/rips-parser';
 import { Input } from '../ui/input';
 import type { UserData, CupsDataRow, UserActivity, ActivityRanking, UserRanking } from '@/lib/types';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '../ui/badge';
 
 interface UserAnalysisProps {
@@ -121,12 +121,12 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     });
 
     const activitySegments: { [key: string]: { user: number; code: number } } = {
-        'AC': { user: 2, code: 6 },
-        'AP': { user: 3, code: 5 },
-        'AU': { user: 2, code: 6 },
-        'AN': { user: 2, code: 6 },
-        'AT': { user: 2, code: 6 },
-        'AM': { user: 2, code: 4 },
+        'AC': { user: 3, code: 6 },
+        'AP': { user: 3, code: 6 },
+        'AU': { user: 3, code: 7 },
+        'AN': { user: 3, code: 7 },
+        'AT': { user: 3, code: 6 },
+        'AM': { user: 3, code: 5 },
     };
 
     for (const seg in activitySegments) {
@@ -282,10 +282,10 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                 />
             </div>
             <ScrollArea className="whitespace-nowrap rounded-md border h-[500px]">
-                 <Accordion type="single" collapsible className="w-full">
+                 <div className="w-full">
                     {filteredUsers.map(user => (
-                        <AccordionItem value={user.numDoc} key={user.numDoc}>
-                            <AccordionTrigger className='px-4 hover:no-underline hover:bg-muted/50'>
+                        <Collapsible key={user.numDoc} className="border-b">
+                            <CollapsibleTrigger className='px-4 py-3 w-full hover:bg-muted/50'>
                                 <div className='flex justify-between w-full items-center'>
                                    <div className='text-left'>
                                      <p className='font-semibold'>{user.nombreCompleto}</p>
@@ -294,10 +294,11 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                                    <div className='flex gap-4 items-center mr-8'>
                                      <Badge variant='outline'>{user.grupoEtario}</Badge>
                                      <Badge variant='secondary'>{user.activities.length} actividade(s)</Badge>
+                                     <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                                    </div>
                                 </div>
-                            </AccordionTrigger>
-                            <AccordionContent className='p-4 bg-secondary/30'>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className='p-4 bg-secondary/30'>
                                {user.activities.length > 0 ? (
                                 <Table>
                                     <TableHeader>
@@ -320,10 +321,10 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
                                ) : (
                                 <p className='text-sm text-muted-foreground text-center py-4'>Este usuario no tiene actividades registradas en los archivos.</p>
                                )}
-                            </AccordionContent>
-                        </AccordionItem>
+                            </CollapsibleContent>
+                        </Collapsible>
                     ))}
-                 </Accordion>
+                 </div>
             </ScrollArea>
           </div>
         )}
@@ -338,3 +339,5 @@ export default function UserAnalysis({ ripsFileContents, cupsData }: UserAnalysi
     </Card>
   );
 }
+
+    
